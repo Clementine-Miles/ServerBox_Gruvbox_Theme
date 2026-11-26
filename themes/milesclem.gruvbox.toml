@@ -9,3 +9,11 @@ zh = "经典 Gruvbox：暖色中等对比度背景，绿色或蓝色主色调，
 zh-TW = "經典 Gruvbox：暖色中等對比度背景，綠色或藍色主色調，保留七色配色，支援淺色、深色及跟隨系統模式。"
 
 # The official publisher adds version metadata after a real release upload.
+
+[[version]]
+version = "1.0.0"
+schema_min = 3
+schema_max = 4
+url = "https://github.com/Clementine-Miles/ServerBox_Gruvbox_Theme/releases/download/themes/milesclem.gruvbox-1.0.0.fsbt"
+sha256 = "a2363c82379cc3d879e5cd7fa97ea5855126b0151c6d3c54311ca2ae8f498bed"
+size = 11157
