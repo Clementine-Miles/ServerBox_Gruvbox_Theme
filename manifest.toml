@@ -1,0 +1,449 @@
+#:schema https://raw.githubusercontent.com/lollipopkit/flutter_server_box/fa7941a0b3d4dda154cbf85b007dc6348812e679/docs/schemas/fsbt-manifest.schema.json
+# Palette adapted from morhetz/gruvbox (https://github.com/morhetz/gruvbox).
+# Upstream README identifies the license as MIT/X11.
+# Upstream author: Pavel Pertsev (morhetz). No dated copyright line or
+# standalone LICENSE was found at the pinned revision; no date is inferred.
+# MIT/X11 permission and warranty notice (standard MIT form):
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# Copyright (c) 2026 milesclem contributors (ServerBox adaptation).
+# The adaptation is licensed under the MIT permission and warranty terms above.
+# Regenerate with tools/generate.py.
+id = "milesclem.gruvbox"
+name = "Gruvbox"
+modes = ["light", "dark"]
+
+[schema]
+min = 3
+max = 4
+
+[colors]
+mode = 0
+seed = 0xFF868213
+systemColor = false
+
+[colors.palette.dark]
+surface = 0xFF282828
+onSurface = 0xFFEBDBB2
+surfaceDim = 0xFF1D2021
+surfaceBright = 0xFF504945
+surfaceContainerLowest = 0xFF1D2021
+surfaceContainerLow = 0xFF32302F
+surfaceContainer = 0xFF3C3836
+surfaceContainerHigh = 0xFF46403E
+surfaceContainerHighest = 0xFF504945
+onSurfaceVariant = 0xFFD5C4A1
+primary = 0xFFDCDD92
+onPrimary = 0xFF141617
+primaryContainer = 0xFF454528
+onPrimaryContainer = 0xFFCACC5C
+primaryFixed = 0xFFE0DF94
+primaryFixedDim = 0xFFCACB58
+onPrimaryFixed = 0xFF141617
+onPrimaryFixedVariant = 0xFF504D12
+secondary = 0xFFFE8019
+onSecondary = 0xFF141617
+secondaryContainer = 0xFF533A25
+onSecondaryContainer = 0xFFFEAE6C
+secondaryFixed = 0xFFFBC98F
+secondaryFixedDim = 0xFFFDA14E
+onSecondaryFixed = 0xFF141617
+onSecondaryFixedVariant = 0xFF712C0B
+tertiary = 0xFFD3869B
+onTertiary = 0xFF141617
+tertiaryContainer = 0xFF4A3B3F
+onTertiaryContainer = 0xFFE3B2BF
+tertiaryFixed = 0xFFEBCBC0
+tertiaryFixedDim = 0xFFDEA5AC
+onTertiaryFixed = 0xFF141617
+onTertiaryFixedVariant = 0xFF5F2F4E
+error = 0xFFFECEC8
+onError = 0xFF141617
+errorContainer = 0xFF522F2A
+onErrorContainer = 0xFFFD9B8F
+outline = 0xFFBAB1A7
+outlineVariant = 0xFF615D5A
+shadow = 0xFF000000
+scrim = 0xFF000000
+inverseSurface = 0xFFEBDBB2
+onInverseSurface = 0xFF282828
+inversePrimary = 0xFF605C10
+surfaceTint = 0x00000000
+
+[colors.palette.light]
+surface = 0xFFFBF1C7
+onSurface = 0xFF3C3836
+surfaceDim = 0xFFD5C4A1
+surfaceBright = 0xFFF9F5D7
+surfaceContainerLowest = 0xFFF9F5D7
+surfaceContainerLow = 0xFFF2E5BC
+surfaceContainer = 0xFFEBDBB2
+surfaceContainerHigh = 0xFFE0D0AA
+surfaceContainerHighest = 0xFFD5C4A1
+onSurfaceVariant = 0xFF504945
+primary = 0xFF504D09
+onPrimary = 0xFFFBF1C7
+primaryContainer = 0xFFE5DCA8
+onPrimaryContainer = 0xFF5B570A
+primaryFixed = 0xFFE0DF94
+primaryFixedDim = 0xFFCACB58
+onPrimaryFixed = 0xFF141617
+onPrimaryFixedVariant = 0xFF504D12
+secondary = 0xFFAF3A03
+onSecondary = 0xFFFBF1C7
+secondaryContainer = 0xFFEED2A6
+onSecondaryContainer = 0xFF933103
+secondaryFixed = 0xFFFBC98F
+secondaryFixedDim = 0xFFFDA14E
+onSecondaryFixed = 0xFF141617
+onSecondaryFixedVariant = 0xFF712C0B
+tertiary = 0xFF8F3F71
+onTertiary = 0xFFFBF1C7
+tertiaryContainer = 0xFFE9D3B8
+onTertiaryContainer = 0xFF7F3865
+tertiaryFixed = 0xFFEBCBC0
+tertiaryFixedDim = 0xFFDEA5AC
+onTertiaryFixed = 0xFF141617
+onTertiaryFixedVariant = 0xFF5F2F4E
+error = 0xFF920006
+onError = 0xFFFBF1C7
+errorContainer = 0xFFEBC8A6
+onErrorContainer = 0xFF9B0006
+outline = 0xFF5D544A
+outlineVariant = 0xFFBDB496
+shadow = 0xFF000000
+scrim = 0xFF000000
+inverseSurface = 0xFF3C3836
+onInverseSurface = 0xFFFBF1C7
+inversePrimary = 0xFFB8BB26
+surfaceTint = 0x00000000
+
+[components.card]
+backgroundColor = "surfaceContainerLow"
+radius = 12
+borderColor = "outlineVariant"
+borderWidth = 1
+elevation = 0
+surfaceTintColor = 0x00000000
+
+[components.tile]
+selectedTileColor = "primaryContainer"
+selectedColor = "onPrimaryContainer"
+iconColor = "onSurfaceVariant"
+radius = 8
+
+[components.button]
+radius = 10
+elevation = 0
+surfaceTintColor = 0x00000000
+
+[components.textButton]
+radius = 8
+
+[components.textButton.focused]
+borderColor = "primary"
+borderWidth = 2
+
+[components.outlinedButton]
+radius = 10
+borderColor = "outline"
+borderWidth = 1
+
+[components.outlinedButton.focused]
+borderColor = "primary"
+borderWidth = 2
+
+[components.iconButton]
+radius = 8
+
+[components.iconButton.focused]
+borderColor = "primary"
+borderWidth = 2
+
+[components.input]
+filled = true
+fillColor = "surfaceContainerLow"
+radius = 8
+borderColor = "outline"
+borderWidth = 1
+focusedBorderColor = "primary"
+errorBorderColor = "error"
+disabledBorderColor = "outlineVariant"
+
+[components.search]
+backgroundColor = "surfaceContainerLow"
+radius = 10
+borderColor = "outline"
+borderWidth = 1
+textColor = "onSurface"
+hintColor = "onSurfaceVariant"
+
+[components.appBar]
+backgroundColor = "surface"
+foregroundColor = "onSurface"
+titleColor = "onSurface"
+elevation = 0
+surfaceTintColor = 0x00000000
+
+[components.navigation]
+backgroundColor = "surfaceContainerLow"
+indicatorColor = "primaryContainer"
+indicatorRadius = 10
+selectedIconColor = "onPrimaryContainer"
+unselectedIconColor = "onSurfaceVariant"
+unselectedLabelColor = "onSurfaceVariant"
+elevation = 0
+
+[components.segmented]
+backgroundColor = "surfaceContainer"
+selectedColor = "primaryContainer"
+textColor = "onSurfaceVariant"
+selectedTextColor = "onPrimaryContainer"
+radius = 8
+borderColor = "outline"
+borderWidth = 1
+
+[components.sidebar]
+backgroundColor = "surfaceContainerLow"
+selectedColor = "primaryContainer"
+textColor = "onSurface"
+selectedTextColor = "onPrimaryContainer"
+iconColor = "onSurfaceVariant"
+radius = 8
+
+[components.dialog]
+backgroundColor = "surfaceContainer"
+radius = 16
+borderColor = "outlineVariant"
+borderWidth = 1
+elevation = 0
+surfaceTintColor = 0x00000000
+
+[components.sheet]
+backgroundColor = "surfaceContainer"
+radius = 16
+elevation = 0
+surfaceTintColor = 0x00000000
+dragHandleColor = "outline"
+
+[components.menu]
+backgroundColor = "surfaceContainerHigh"
+radius = 8
+borderColor = "outlineVariant"
+borderWidth = 1
+elevation = 0
+surfaceTintColor = 0x00000000
+textColor = "onSurface"
+
+[components.tooltip]
+radius = 6
+
+[components.toast]
+backgroundColor = "inverseSurface"
+textColor = "onInverseSurface"
+radius = 10
+elevation = 0
+
+[components.slider]
+activeTrackColor = "primary"
+inactiveTrackColor = "primaryContainer"
+thumbColor = "primary"
+
+[components.progress]
+color = "primary"
+trackColor = "primaryContainer"
+
+[components.badge]
+backgroundColor = "tertiary"
+textColor = "onTertiary"
+
+[components.chip]
+backgroundColor = "surfaceContainerLow"
+selectedColor = "secondaryContainer"
+textColor = "onSurface"
+radius = 8
+borderColor = "outlineVariant"
+borderWidth = 1
+
+[components.divider]
+color = "outlineVariant"
+thickness = 1
+
+[components.scrollbar]
+thumbColor = "outline"
+trackColor = "surfaceContainerLow"
+radius = 4
+
+[components.dark.textButton]
+foregroundColor = 0xFFA5CD96
+
+[components.dark.textButton.disabled]
+foregroundColor = 0x61EBDBB2
+
+[components.dark.iconButton.disabled]
+foregroundColor = 0x61EBDBB2
+backgroundColor = 0x00000000
+
+[components.dark.iconButton.selected]
+foregroundColor = "onPrimaryContainer"
+backgroundColor = "primaryContainer"
+
+[components.dark.chip]
+textColor = 0xFFEBDBB2
+
+[components.dark.input]
+errorBorderColor = 0xFFFB4934
+
+[components.dark.iconButton]
+foregroundColor = 0xFFCDDBD6
+
+[components.dark.search]
+iconColor = 0xFFCDDBD6
+
+[components.dark.appBar]
+iconColor = 0xFFDCDD92
+
+[components.dark.navigation]
+selectedLabelColor = 0xFFDCDD92
+
+[components.dark.sidebar]
+selectedIconColor = "onPrimaryContainer"
+
+[components.dark.progress]
+color = 0xFFB8BB26
+
+[components.dark.slider]
+activeTrackColor = 0xFFB8BB26
+thumbColor = 0xFFB8BB26
+
+[components.dark.tooltip]
+backgroundColor = 0xFFFABD2F
+textColor = 0xFF141617
+
+[components.light.textButton]
+foregroundColor = 0xFF2E553D
+
+[components.light.textButton.disabled]
+foregroundColor = 0x613C3836
+
+[components.light.iconButton.disabled]
+foregroundColor = 0x613C3836
+backgroundColor = 0x00000000
+
+[components.light.iconButton.selected]
+foregroundColor = "onPrimaryContainer"
+backgroundColor = "primaryContainer"
+
+[components.light.chip]
+textColor = 0xFF3C3836
+
+[components.light.input]
+errorBorderColor = 0xFF9D0006
+
+[components.light.iconButton]
+foregroundColor = 0xFF06515F
+
+[components.light.search]
+iconColor = 0xFF06515F
+
+[components.light.appBar]
+iconColor = 0xFF504D09
+
+[components.light.navigation]
+selectedLabelColor = 0xFF504D09
+
+[components.light.sidebar]
+selectedIconColor = "onPrimaryContainer"
+
+[components.light.progress]
+color = 0xFF79740E
+
+[components.light.slider]
+activeTrackColor = 0xFF79740E
+thumbColor = 0xFF79740E
+
+[components.light.tooltip]
+backgroundColor = 0xFFB57614
+textColor = 0xFF000000
+
+[variants.green]
+name = "Green"
+
+[variants.blue]
+name = "Blue"
+
+[variants.blue.colors]
+seed = 0xFF4B898A
+
+[variants.blue.colors.palette.dark]
+primary = 0xFFCDDBD6
+primaryContainer = 0xFF3A413E
+onPrimaryContainer = 0xFFAEC4BC
+primaryFixed = 0xFFCCD7BF
+primaryFixedDim = 0xFFA4BBAA
+onPrimaryFixedVariant = 0xFF0C4752
+inversePrimary = 0xFF086374
+
+[variants.blue.colors.palette.light]
+primary = 0xFF06515F
+primaryContainer = 0xFFD2D9BA
+onPrimaryContainer = 0xFF065968
+primaryFixed = 0xFFCCD7BF
+primaryFixedDim = 0xFFA4BBAA
+onPrimaryFixedVariant = 0xFF0C4752
+inversePrimary = 0xFF96B1A0
+
+[variants.blue.components.dark.iconButton]
+foregroundColor = 0xFFDCDD92
+
+[variants.blue.components.dark.search]
+iconColor = 0xFFDCDD92
+
+[variants.blue.components.dark.appBar]
+iconColor = 0xFFCDDBD6
+
+[variants.blue.components.dark.navigation]
+selectedLabelColor = 0xFFCDDBD6
+
+[variants.blue.components.dark.progress]
+color = 0xFF83A598
+
+[variants.blue.components.dark.slider]
+activeTrackColor = 0xFF83A598
+thumbColor = 0xFF83A598
+
+[variants.blue.components.light.iconButton]
+foregroundColor = 0xFF504D09
+
+[variants.blue.components.light.search]
+iconColor = 0xFF504D09
+
+[variants.blue.components.light.appBar]
+iconColor = 0xFF06515F
+
+[variants.blue.components.light.navigation]
+selectedLabelColor = 0xFF06515F
+
+[variants.blue.components.light.progress]
+color = 0xFF076678
+
+[variants.blue.components.light.slider]
+activeTrackColor = 0xFF076678
+thumbColor = 0xFF076678
