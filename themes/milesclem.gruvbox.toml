@@ -1,0 +1,11 @@
+id = "milesclem.gruvbox"
+name = "Gruvbox"
+homepage = "https://github.com/Clementine-Miles/ServerBox_Gruvbox_Theme"
+license = "MIT"
+
+[description]
+en = "Classic Gruvbox, with warm Medium-contrast surfaces, Green or Blue primary accents, the full seven-color palette, and Light/Dark/System appearance."
+zh = "经典 Gruvbox：暖色中等对比度背景，绿色或蓝色主色调，保留七色配色，支持浅色、深色及跟随系统模式。"
+zh-TW = "經典 Gruvbox：暖色中等對比度背景，綠色或藍色主色調，保留七色配色，支援淺色、深色及跟隨系統模式。"
+
+# The official publisher adds version metadata after a real release upload.

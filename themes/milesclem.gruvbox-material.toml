@@ -1,0 +1,11 @@
+id = "milesclem.gruvbox-material"
+name = "Gruvbox Material"
+homepage = "https://github.com/Clementine-Miles/ServerBox_Gruvbox_Theme"
+license = "MIT"
+
+[description]
+en = "Gruvbox Material's softer material foreground palette; six Green/Blue and Medium/Hard/Soft contrast variants, each with Light/Dark/System appearance."
+zh = "Gruvbox Material 的柔和 material 前景配色：绿色或蓝色主色调与中等、高、低背景对比度组合为六个变体，均支持浅色、深色及跟随系统模式。"
+zh-TW = "Gruvbox Material 的柔和 material 前景配色：綠色或藍色主色調與中等、高、低背景對比度組合為六個變體，均支援淺色、深色及跟隨系統模式。"
+
+# The official publisher adds version metadata after a real release upload.

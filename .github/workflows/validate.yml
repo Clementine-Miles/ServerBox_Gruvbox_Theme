@@ -1,0 +1,72 @@
+name: Validate and pack ServerBox themes
+
+on:
+  workflow_dispatch:
+    inputs:
+      verify_public_assets:
+        description: Verify already uploaded 1.0.0 Release assets
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install full schema checker
+        run: python -m pip install check-jsonschema==0.38.2
+      - name: Run pinned upstream validation, reproducible packing and publisher dry-run
+        run: python tools/release_check.py --preview-dir "$RUNNER_TEMP/gruvbox-validated"
+      - name: Prepare immutable 1.0.0 release files and listing blocks
+        env:
+          VERIFY_PUBLIC: ${{ inputs.verify_public_assets }}
+        run: |
+          python - <<'PY'
+          import hashlib, os, pathlib, shutil, subprocess, tomllib
+          preview = pathlib.Path(os.environ['RUNNER_TEMP']) / 'gruvbox-validated'
+          output = pathlib.Path(os.environ['RUNNER_TEMP']) / 'release-output'
+          assets = output / 'assets'
+          blocks = output / 'version-blocks'
+          assets.mkdir(parents=True)
+          blocks.mkdir()
+          repo = os.environ['GITHUB_REPOSITORY']
+          version = '1.0.0'
+          for tid in ('milesclem.gruvbox', 'milesclem.gruvbox-material'):
+              manifest = tomllib.loads(pathlib.Path(f'themes/{tid}/manifest.toml').read_text('utf-8'))
+              listing = tomllib.loads(pathlib.Path(f'themes/{tid}.toml').read_text('utf-8'))
+              path = assets / f'{tid}-{version}.fsbt'
+              shutil.copyfile(preview / f'{tid}-preview.fsbt', path)
+              data = path.read_bytes()
+              digest = hashlib.sha256(data).hexdigest()
+              url = f'https://github.com/{repo}/releases/download/themes/{path.name}'
+              record = dict(version=version, schema_min=manifest['schema']['min'], schema_max=manifest['schema']['max'], url=url, sha256=digest, size=len(data))
+              existing = listing.get('version', [])
+              if existing and (len(existing) != 1 or any(existing[0].get(k) != v for k,v in record.items())):
+                  raise SystemExit(f'{tid}: existing release metadata differs; do not reuse 1.0.0 for new bytes')
+              block = '\n'.join(['[[version]]', *(f'{k} = "{v}"' if isinstance(v,str) else f'{k} = {v}' for k,v in record.items())]) + '\n'
+              (blocks / f'{tid}.txt').write_text(block, encoding='utf-8')
+              print(path.name, digest, len(data))
+              if os.environ.get('VERIFY_PUBLIC','').lower() == 'true':
+                  downloaded = output / (path.name + '.download')
+                  subprocess.run(['curl','--fail','--location','--retry','3','--max-time','60',url,'--output',str(downloaded)],check=True)
+                  if downloaded.read_bytes() != data:
+                      raise SystemExit(f'{tid}: public asset differs from validated bytes')
+                  downloaded.unlink()
+                  print(f'{tid}: public bytes verified')
+              with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as summary:
+                  summary.write(f'### {tid}\n\n```toml\n{block}```\n\n')
+          shutil.copyfile(preview / 'audit.json', output / 'audit.json')
+          PY
+      - name: Upload verified release candidates and metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: gruvbox-1.0.0-release-candidates
+          path: ${{ runner.temp }}/release-output/
+          if-no-files-found: error
