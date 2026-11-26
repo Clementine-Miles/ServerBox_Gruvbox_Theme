@@ -9,3 +9,11 @@ zh = "Gruvbox Material 的柔和 material 前景配色：绿色或蓝色主色�
 zh-TW = "Gruvbox Material 的柔和 material 前景配色：綠色或藍色主色調與中等、高、低背景對比度組合為六個變體，均支援淺色、深色及跟隨系統模式。"
 
 # The official publisher adds version metadata after a real release upload.
+
+[[version]]
+version = "1.0.0"
+schema_min = 3
+schema_max = 4
+url = "https://github.com/Clementine-Miles/ServerBox_Gruvbox_Theme/releases/download/themes/milesclem.gruvbox-material-1.0.0.fsbt"
+sha256 = "be304a9b72fe441fd81820f0d3b13eff8dfea87503a1639794f6fa69d0c5c95e"
+size = 18691
