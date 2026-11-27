@@ -1,6 +1,6 @@
 # Third-party notices
 
-The repository MIT license applies to the original adaptation and tools; upstream palettes retain their licenses.
+The repository MIT license covers the theme adaptation and tools. Upstream palettes retain their licenses.
 
 ## Gruvbox Original
 
@@ -57,6 +57,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-## Other references
+## ServerBox patch
 
-Termux:Styling was consulted only to compare upstream color identities. No Termux implementation, ANSI configuration files, ServerBox code, images or icons are distributed. The official tools are fetched at verification time rather than redistributed.
+The SSH appearance patch modifies ServerBox code by lollipopkit and contributors under the GNU Affero General Public License v3.0. Official ServerBox validation tools are fetched at verification time. [Patch](docs/serverbox-terminal-appearance.patch) · [AGPL v3.0](docs/SERVERBOX-LICENSE) · [ServerBox source](https://github.com/lollipopkit/flutter_server_box/tree/fa7941a0b3d4dda154cbf85b007dc6348812e679)

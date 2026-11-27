@@ -1,21 +1,59 @@
 #!/usr/bin/env python3
-"""Audit the effective themes. Optionally validate with the full upstream schema."""
+"""Resolve the manifests and measure source-derived color pairs independently."""
 from __future__ import annotations
+
 import argparse
-import copy
+from colorsys import rgb_to_hls
+from dataclasses import dataclass
 import hashlib
+from itertools import product
 import json
 import math
 from pathlib import Path
 import re
 import tomllib
+from urllib.parse import urlparse
 import zipfile
 
+
 ROOT = Path(__file__).resolve().parents[1]
-ROLES = set('''primary onPrimary primaryContainer onPrimaryContainer primaryFixed primaryFixedDim onPrimaryFixed onPrimaryFixedVariant secondary onSecondary secondaryContainer onSecondaryContainer secondaryFixed secondaryFixedDim onSecondaryFixed onSecondaryFixedVariant tertiary onTertiary tertiaryContainer onTertiaryContainer tertiaryFixed tertiaryFixedDim onTertiaryFixed onTertiaryFixedVariant error onError errorContainer onErrorContainer surface onSurface surfaceDim surfaceBright surfaceContainerLowest surfaceContainerLow surfaceContainer surfaceContainerHigh surfaceContainerHighest onSurfaceVariant outline outlineVariant shadow scrim inverseSurface onInverseSurface inversePrimary surfaceTint'''.split())
-# Validation-only projection of the pinned schema for the deliberately narrow
-# feature set of these two packages. The full official JSON Schema is checked
-# separately when --schema is passed. Do not mistake this for the installer.
+SCHEMA_BLOB = "174e1d7bff0b825ddd00d79fe95f7abfc8f5685e"
+TEXT = 4.5
+GRAPHIC = 3.0
+VARIANTS = {
+    "milesclem.gruvbox": ("green", "blue"),
+    "milesclem.gruvbox-material": (
+        "medium_green", "medium_blue", "hard_green", "hard_blue", "soft_green", "soft_blue",
+    ),
+}
+BG0 = {
+    "medium": {"dark": 0xFF282828, "light": 0xFFFBF1C7},
+    "hard": {"dark": 0xFF1D2021, "light": 0xFFF9F5D7},
+    "soft": {"dark": 0xFF32302F, "light": 0xFFF2E5BC},
+}
+LADDER = (
+    "surfaceContainerLowest", "surfaceContainerLow", "surfaceContainer",
+    "surfaceContainerHigh", "surfaceContainerHighest",
+)
+SURFACES = ("surface", "surfaceDim", "surfaceBright", *LADDER)
+TONES = ("primary", "secondary", "tertiary", "error")
+# Independent reference anchors for checking the direction of contrast adjustment.
+ANCHORS = {
+    ("original", "dark"): "FB4934 FE8019 FABD2F B8BB26 8EC07C 83A598 D3869B",
+    ("original", "light"): "9D0006 AF3A03 B57614 79740E 427B58 076678 8F3F71",
+    ("material", "dark"): "EA6962 E78A4E D8A657 A9B665 89B482 7DAEA3 D3869B",
+    ("material", "light"): "C14A4A C35E0A B47109 6C782E 4C7A5D 45707A 945E80",
+}
+ROLES = {
+    *SURFACES, "onSurface", "onSurfaceVariant", "outline", "outlineVariant",
+    "shadow", "scrim", "inverseSurface", "onInverseSurface", "inversePrimary", "surfaceTint",
+    *(tone + suffix for tone in TONES for suffix in ("", "Container")),
+    *("on" + tone.title() + suffix for tone in TONES for suffix in ("", "Container")),
+    *(tone + suffix for tone in TONES[:-1] for suffix in ("Fixed", "FixedDim")),
+    *("on" + tone.title() + suffix for tone in TONES[:-1] for suffix in ("Fixed", "FixedVariant")),
+}
+# Local FSBT projection for a dependency-free audit. The release check also
+# requires validation against the whole official schema.
 SHAPE = 'radius:ratio borderColor:color borderWidth:borderWidth'
 SURFACE = 'backgroundColor:color elevation:elevation shadowColor:color surfaceTintColor:color'
 BUTTON = f'{SHAPE} {SURFACE} foregroundColor:color overlayColor:color padding:inset minHeight:size'
@@ -47,227 +85,673 @@ FIELDS = {
 }
 FIELDS = {k:dict(x.split(':') for x in v.split()) for k,v in FIELDS.items()}
 BOUNDS = {'ratio':40,'borderWidth':8,'elevation':24,'size':96,'thickness':16}
-BG_ROLES = ('surface','surfaceDim','surfaceBright','surfaceContainerLowest','surfaceContainerLow','surfaceContainer','surfaceContainerHigh','surfaceContainerHighest')
+STATE_PRIORITY = ("selected", "focused", "hovered", "pressed", "disabled")
+ACTIVE_STATES = (
+    frozenset(), {"hovered"}, {"focused"}, {"pressed"},
+    {"focused", "hovered"}, {"focused", "pressed"},
+)
 
 
-def check(c,msg):
-    if not c: raise ValueError(msg)
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
 
 
-def rgba(v):return type(v) is int and 0<=v<=0xFFFFFFFF
+def read(path):
+    return tomllib.loads(path.read_text(encoding="utf-8"))
 
 
-def hexrgb(v):return f'{v&0xFFFFFF:06X}'
+def argb(value):
+    return type(value) is int and 0 <= value <= 0xFFFFFFFF
 
 
-def valid_field(kind,value):
-    if kind=='color':return rgba(value) or (isinstance(value,str) and value in ROLES)
-    if kind=='flag':return type(value) is bool
-    if kind=='inset':return isinstance(value,list) and len(value)==4 and all(type(x) in (int,float) and 0<=x<=64 for x in value)
-    return type(value) in (int,float) and 0<=value<=BOUNDS[kind]
+def valid_field(kind, value):
+    if kind == "color":
+        return argb(value) or isinstance(value, str) and value in ROLES
+    if kind == "flag":
+        return type(value) is bool
+    if kind == "inset":
+        return (isinstance(value, list) and len(value) == 4
+                and all(type(part) in (int, float) and 0 <= part <= 64 for part in value))
+    return type(value) in (int, float) and 0 <= value <= BOUNDS[kind]
 
 
-def check_components(table,path='components',allow_brightness=True):
-    check(isinstance(table,dict),path)
-    for key,values in table.items():
-        if allow_brightness and key in ('dark','light'):
-            check_components(values,path+'.'+key,False);continue
-        check(key in FIELDS and isinstance(values,dict),path+'.'+key)
-        for field,value in values.items():
-            if field in STATES and key in STATEFUL:
-                check(isinstance(value,dict),path+'.'+key+'.'+field)
-                for k,v in value.items():check(k in FIELDS[key] and valid_field(FIELDS[key][k],v),path+'.'+key+'.'+field+'.'+k)
-            else:check(field in FIELDS[key] and valid_field(FIELDS[key][field],value),path+'.'+key+'.'+field)
+def check_components(components, path="components", allow_brightness=True):
+    require(isinstance(components, dict), path)
+    for name, fields in components.items():
+        location = f"{path}.{name}"
+        if allow_brightness and name in ("dark", "light"):
+            check_components(fields, location, allow_brightness=False)
+            continue
+        require(name in FIELDS and isinstance(fields, dict), location)
+        for field, value in fields.items():
+            if field in STATES and name in STATEFUL:
+                require(isinstance(value, dict), f"{location}.{field}")
+                for key, state_value in value.items():
+                    require(key in FIELDS[name] and valid_field(FIELDS[name][key], state_value),
+                            f"{location}.{field}.{key}")
+            else:
+                require(field in FIELDS[name] and valid_field(FIELDS[name][field], value),
+                        f"{location}.{field}")
 
 
-def check_colors(c):
-    check(set(c)<= {'mode','seed','systemColor','palette'},'unknown colors field')
-    if 'mode' in c:check(type(c['mode']) is int and 0<=c['mode']<=2,'mode')
-    if 'seed' in c:check(rgba(c['seed']),'seed')
-    if 'systemColor' in c:check(type(c['systemColor']) is bool,'systemColor')
-    check(set(c.get('palette',{}))<= {'dark','light'},'unknown brightness')
-    for p in c.get('palette',{}).values():check(set(p)<=ROLES and all(rgba(v) for v in p.values()),'palette field/value')
+def check_colors(colors):
+    require(set(colors) <= {"mode", "seed", "systemColor", "palette"}, "unknown colors field")
+    if "mode" in colors:
+        require(type(colors["mode"]) is int and 0 <= colors["mode"] <= 2, "colors.mode")
+    if "seed" in colors:
+        require(argb(colors["seed"]), "colors.seed")
+    if "systemColor" in colors:
+        require(type(colors["systemColor"]) is bool, "colors.systemColor")
+    palettes = colors.get("palette", {})
+    require(set(palettes) <= {"dark", "light"}, "unknown palette brightness")
+    for palette in palettes.values():
+        require(set(palette) <= ROLES and all(map(argb, palette.values())), "palette")
 
 
-def merge(a,b):
-    result=copy.deepcopy(a)
-    for k,v in b.items():result[k]=merge(result[k],v) if isinstance(v,dict) and isinstance(result.get(k),dict) else copy.deepcopy(v)
+def merge(base, overrides):
+    """FSBT deep-merges tables and replaces scalars before brightness lookup."""
+    result = dict(base)
+    for key, value in overrides.items():
+        inherited = result.get(key)
+        if isinstance(value, dict) and isinstance(inherited, dict):
+            result[key] = merge(inherited, value)
+        else:
+            result[key] = value
     return result
 
 
-def resolved_components(c,mode):return merge({k:v for k,v in c.items() if k not in ('light','dark')},c.get(mode,{}))
+def component_styles(components, mode):
+    common = {key: value for key, value in components.items() if key not in ("dark", "light")}
+    return merge(common, components.get(mode, {}))
 
 
-# Independent oracle: no generator import. Exact arithmetic after sRGB source-over.
-IDS = {'milesclem.gruvbox': ['green','blue'], 'milesclem.gruvbox-material': [f'{l}_{a}' for l in ('medium','hard','soft') for a in ('green','blue')]}
-BASE = {'medium': {'dark':0xFF282828,'light':0xFFFBF1C7}, 'hard':{'dark':0xFF1D2021,'light':0xFFF9F5D7},'soft':{'dark':0xFF32302F,'light':0xFFF2E5BC}}
-CANONICAL = {
-    ('original','dark'):'FB4934 FE8019 FABD2F B8BB26 8EC07C 83A598 D3869B',
-    ('original','light'):'9D0006 AF3A03 B57614 79740E 427B58 076678 8F3F71',
-    ('material','dark'):'EA6962 E78A4E D8A657 A9B665 89B482 7DAEA3 D3869B',
-    ('material','light'):'C14A4A C35E0A B47109 6C782E 4C7A5D 45707A 945E80',
+def active_style(style, states):
+    effective = {key: value for key, value in style.items() if key not in STATES}
+    for state in STATE_PRIORITY:
+        if state in states:
+            effective.update(style.get(state, {}))
+    return effective
+
+
+def channels(number):
+    return tuple((number >> shift & 255) / 255 for shift in (16, 8, 0, 24))
+
+
+def over(top, bottom):
+    alpha = top[3] + bottom[3] * (1 - top[3])
+    if not alpha:
+        return (0., 0., 0., 0.)
+    return tuple((fg * top[3] + bg * bottom[3] * (1 - top[3])) / alpha
+                 for fg, bg in zip(top[:3], bottom[:3])) + (alpha,)
+
+
+def luminance(color):
+    linear = (c / 12.92 if c <= .04045 else ((c + .055) / 1.055) ** 2.4 for c in color[:3])
+    return sum(weight * value for weight, value in zip((.2126, .7152, .0722), linear))
+
+
+def contrast(foreground, background):
+    require(background[3] == 1, "opaque contrast substrate required")
+    low, high = sorted((luminance(over(foreground, background)), luminance(background)))
+    return (high + .05) / (low + .05)
+
+
+def hex_color(color):
+    return "#" + "".join(f"{math.floor(value * 255 + .5):02X}" for value in color[:3])
+
+
+def ink(color, opacity):
+    return (*color[:3], opacity)
+
+
+def check_hue(color, anchor, context):
+    h, _, s = rgb_to_hls(*channels(color)[:3])
+    reference_h, _, reference_s = rgb_to_hls(*channels(anchor)[:3])
+    delta = abs(h - reference_h)
+    require(min(delta, 1 - delta) < .035 and s >= reference_s * .75, f"{context}: Gruvbox hue")
+
+
+def anchors(family, mode):
+    names = ("red", "orange", "yellow", "green", "aqua", "blue", "purple")
+    return dict(zip(names, (int("FF" + value, 16) for value in ANCHORS[family, mode].split())))
+
+
+def references():
+    require(contrast(channels(0xFFFFFFFF), channels(0xFF000000)) == 21, "contrast oracle")
+    require(hex_color(over(channels(0x80FF0000), channels(0xFF0000FF))) == "#80007F",
+            "source-over oracle")
+    sample = {"iconButton": {"focused": {"borderColor": "primary", "borderWidth": 2}}}
+    overrides = {"dark": {"iconButton": {"focused": {"borderColor": "error"}}}}
+    style = component_styles(merge(sample, overrides), "dark")["iconButton"]
+    style["pressed"] = {"borderWidth": 3, "foregroundColor": "primary"}
+    style["disabled"] = {"foregroundColor": "outline"}
+    require(active_style(style, {"focused", "pressed", "disabled"}) == {
+        "borderColor": "error", "borderWidth": 3, "foregroundColor": "outline",
+    }, "brightness and button state inheritance")
+
+
+def https(value):
+    if not isinstance(value, str):
+        return False
+    url = urlparse(value)
+    return url.scheme == "https" and bool(url.netloc)
+
+
+def listings(require_versions):
+    repo = read(ROOT / "repo.toml")
+    require(type(repo.get("schema")) is int and repo["schema"] == 1
+            and isinstance(repo.get("name"), str) and repo["name"].strip(), "repo metadata")
+    themes = ROOT / "themes"
+    require({path.stem for path in themes.glob("*.toml")} == set(VARIANTS), "listing IDs")
+    require({path.name for path in themes.iterdir() if path.is_dir()} == set(VARIANTS), "package IDs")
+    result = {}
+    for theme_id in VARIANTS:
+        manifest = read(themes / theme_id / "manifest.toml")
+        listing = read(themes / f"{theme_id}.toml")
+        require(listing.get("id") == theme_id and listing.get("name") == manifest.get("name"),
+                f"{theme_id}: listing identity")
+        require(listing.get("license") == "MIT" and https(listing.get("homepage")), "license/homepage")
+        descriptions = listing.get("description")
+        require(isinstance(descriptions, dict) and {"en", "zh", "zh-TW"} <= descriptions.keys()
+                and all(isinstance(text, str) and text.strip() for text in descriptions.values()),
+                "listing description")
+        versions = listing.get("version", [])
+        require(isinstance(versions, list) and (versions or not require_versions),
+                f"{theme_id}: version array")
+        seen = set()
+        for release in versions:
+            require(isinstance(release, dict), "version table")
+            version = release.get("version")
+            require(isinstance(version, str) and version not in seen
+                    and re.fullmatch(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?", version), "unique version")
+            seen.add(version)
+            lo, hi = release.get("schema_min"), release.get("schema_max")
+            require(type(lo) is int and type(hi) is int and 1 <= lo <= hi
+                    and lo <= 4 and hi >= 3, "version schema")
+            digest, size = release.get("sha256"), release.get("size")
+            require(isinstance(digest, str) and re.fullmatch("[0-9a-f]{64}", digest)
+                    and type(size) is int and 0 < size <= 16 * 1024 * 1024, "version digest/size")
+            require("path" not in release and https(release.get("url")), "version URL")
+        result[theme_id] = versions
+    return result
+
+
+@dataclass
+class Measurements:
+    rows: list
+    identity: dict
+    palette: dict
+
+    def color(self, value):
+        return channels(self.palette[value] if isinstance(value, str) else value)
+
+    def pair(self, context, foreground, background, minimum=TEXT, *, layer=None, opacity=None,
+             over_glyphs=False, substrate=None, scope="theme"):
+        fg, bg = self.color(foreground), self.color(background)
+        if substrate is not None:
+            bg = over(bg, self.color(substrate))
+        if layer is not None:
+            overlay = self.color(layer)
+            if opacity is not None:
+                overlay = ink(overlay, opacity)
+            if over_glyphs:
+                fg = over(overlay, over(fg, bg))
+            bg = over(overlay, bg)
+        ratio = contrast(fg, bg)
+        self.rows.append({
+            **self.identity, "scope": scope, "context": context,
+            "foreground": hex_color(over(fg, bg)), "background": hex_color(bg),
+            "ratio": round(ratio, 4), "target": minimum, "status": "PASS" if ratio >= minimum else "FAIL",
+        })
+        return ratio
+
+
+def state_name(states):
+    return "+".join(sorted(states)) or "rest"
+
+
+def flutter_ink(states):
+    # Flutter M3 action buttons choose pressed, then hovered, then focused.
+    if "pressed" in states:
+        return 26 / 255
+    if "hovered" in states:
+        return 20 / 255
+    return 26 / 255 if "focused" in states else 0
+
+
+def buttons(measure, components):
+    pair = measure.pair
+    hosts = ("surface", "surfaceContainerLow", "surfaceContainer")
+    specs = (
+        ("Filled", "button", "onPrimary", "primary"),
+        ("Filled.tonal", "button", "onSecondaryContainer", "secondaryContainer"),
+        ("Elevated", "button", "primary", "surfaceContainerLow"),
+        ("Outlined", "outlinedButton", "primary", None),
+        ("Services Stop", "outlinedButton", "error", None),
+        ("TextButton", "textButton", "primary", None),
+        ("IconButton", "iconButton", "onSurfaceVariant", None),
+        ("IconButton selected", "iconButton", "primary", None),
+    )
+    for label, component, fg, fill in specs:
+        for bg in (fill,) if fill else hosts:
+            minimum = GRAPHIC if component == "iconButton" else TEXT
+            for state in ACTIVE_STATES:
+                active = state | {"selected"} if label.endswith(" selected") else state
+                style = active_style(components[component], active)
+                alpha = flutter_ink(active)
+                overlay = fg if alpha else None
+                status = f"{label} {state_name(active)} on {bg}"
+                pair(status, style.get("foregroundColor", fg), style.get("backgroundColor", bg),
+                     minimum, layer=overlay, opacity=alpha)
+                if "focused" in active and "borderColor" in style:
+                    pair(f"{status} focus ring", style["borderColor"], bg, GRAPHIC,
+                         layer=overlay, opacity=alpha)
+            # Material keeps disabled labels at 38% and filled surfaces at 12%.
+            disabled_ink = ink(measure.color("onSurface"), .38)
+            substrate = measure.color("surface" if fill else bg)
+            disabled_fill = over(ink(measure.color("onSurface"), .12), substrate) if component == "button" else substrate
+            require(contrast(disabled_ink, disabled_fill) < contrast(measure.color(fg), measure.color(bg)),
+                    f"{label}: disabled affordance")
+
+
+def measure_components(measure, components, seed):
+    p = measure.palette
+    pair = measure.pair
+    page, card, raised, high, highest = "surface", *LADDER[1:]
+    selected = "primaryContainer"
+    warning = "secondaryContainer"
+
+    def style(name, field, fallback):
+        return components.get(name, {}).get(field, fallback)
+
+    for background in SURFACES:
+        for foreground in ("onSurface", "onSurfaceVariant"):
+            pair(f"{foreground} on {background}", foreground, background)
+    for role in TONES:
+        foreground = f"on{role.title()}"
+        pair(f"{role} filled", foreground, role)
+        pair(f"{role} container", f"{foreground}Container", f"{role}Container")
+        if role != "error":
+            for background in (f"{role}Fixed", f"{role}FixedDim"):
+                for text in (f"{foreground}Fixed", f"{foreground}FixedVariant"):
+                    pair(f"{text} on {background}", text, background)
+    pair("inverse body", "onInverseSurface", "inverseSurface")
+    pair("inverse action", "inversePrimary", "inverseSurface")
+
+    card_bg = style("card", "backgroundColor", card)
+    pair("card body", "onSurface", card_bg)
+    pair("card subtitle", "onSurfaceVariant", card_bg)
+    appbar = style("appBar", "backgroundColor", page)
+    pair("AppBar title", style("appBar", "titleColor", "onSurface"), appbar)
+    pair("AppBar foreground", style("appBar", "foregroundColor", "onSurface"), appbar)
+    pair("AppBar icon", style("appBar", "iconColor", "onSurface"), appbar, GRAPHIC)
+
+    nav_bg = style("navigation", "backgroundColor", raised)
+    nav_selected = style("navigation", "indicatorColor", warning)
+    sidebar_bg = style("sidebar", "backgroundColor", card_bg)
+    sidebar_selected = style("sidebar", "selectedColor", selected)
+    tile_selected = style("tile", "selectedTileColor", selected)
+    for state in ("selected", "unselected"):
+        nav_fg = "onPrimaryContainer" if state == "selected" else "onSurfaceVariant"
+        bg = nav_selected if state == "selected" else nav_bg
+        pair(f"navigation {state} icon", style("navigation", f"{state}IconColor", nav_fg), bg, GRAPHIC)
+        pair(f"navigation {state} label", style("navigation", f"{state}LabelColor", "onSurface"), nav_bg)
+    pair("sidebar selected text", style("sidebar", "selectedTextColor", "onPrimaryContainer"), sidebar_selected)
+    pair("sidebar selected icon", style("sidebar", "selectedIconColor", "primary"), sidebar_selected, GRAPHIC)
+    pair("sidebar title", style("sidebar", "textColor", "onSurface"), sidebar_bg)
+    pair("sidebar icon", style("sidebar", "iconColor", "onSurfaceVariant"), sidebar_bg, GRAPHIC)
+    pair("sidebar live mark", "primary", sidebar_selected, GRAPHIC)
+    pair("selected tile foreground", style("tile", "selectedColor", "primary"), tile_selected)
+    pair("selected tile subtitle", "onSurfaceVariant", tile_selected)
+    pair("selected tile native title style", "onSurface", tile_selected)
+    for label, bg, fill in (("navigation", nav_bg, nav_selected), ("sidebar", sidebar_bg, sidebar_selected),
+                            ("list tile", card_bg, tile_selected), ("segmented tabs", raised, selected)):
+        pair(f"{label} selected fill alone", fill, bg, GRAPHIC, scope="visual_cue")
+
+    field = style("input", "fillColor", card)
+    for host in (page, field, raised):
+        pair("field text", "onSurface", host)
+        pair("field hint", "onSurfaceVariant", host)
+        pair("field hover hint", "onSurfaceVariant", host, layer="onSurface", opacity=.08)
+        pair("selected field text (Material)", "onSurface", host, layer="primary", opacity=.40)
+        pair("field caret and selection handle", "primary", host, GRAPHIC)
+        pair("error helper text", "error", host)
+        for label, prop, fallback in (
+            ("rest", "borderColor", "outline"), ("focus", "focusedBorderColor", "primary"),
+            ("error/focused error", "errorBorderColor", "error"),
+        ):
+            pair(f"input {label} border", style("input", prop, fallback), host, GRAPHIC)
+        disabled = measure.color(style("input", "disabledBorderColor", "outlineVariant"))
+        enabled = measure.color(style("input", "borderColor", "outline"))
+        require(contrast(disabled, measure.color(host)) < contrast(enabled, measure.color(host)),
+                "disabled field border is subdued")
+    search = style("search", "backgroundColor", card)
+    for background in (search, appbar):
+        pair("search text", style("search", "textColor", "onSurface"), background)
+        pair("search placeholder", style("search", "hintColor", "onSurfaceVariant"), background)
+        pair("search icon", style("search", "iconColor", "onSurfaceVariant"), background, GRAPHIC)
+    pair("search field border", style("search", "borderColor", "outline"), search, GRAPHIC)
+
+    for component, default in (("dialog", raised), ("sheet", raised), ("menu", high)):
+        bg = style(component, "backgroundColor", default)
+        pair(f"{component} title", "onSurface", bg)
+        pair(f"{component} body", "onSurfaceVariant", bg)
+    menu = style("menu", "backgroundColor", high)
+    pair("popup menu entry", style("menu", "textColor", "onSurface"), menu)
+    for opacity in (20 / 255, 26 / 255):
+        pair("Material menu action hover/focus", "onSurface", menu, layer="onSurface", opacity=opacity)
+    pair("sheet grip", style("sheet", "dragHandleColor", "outline"), style("sheet", "backgroundColor", raised), GRAPHIC)
+    for component, background, text in (
+        ("tooltip", "inverseSurface", "onInverseSurface"),
+        ("toast", "inverseSurface", "onInverseSurface"),
+        ("badge", "error", "onError"),
+    ):
+        pair(component, style(component, "textColor", text), style(component, "backgroundColor", background))
+
+    for state in ACTIVE_STATES:
+        alpha = flutter_ink(state)
+        label = state_name(state)
+        for title, fg, bg in (
+            ("native TabBar selected", "primary", page),
+            ("native TabBar unselected", "onSurfaceVariant", page),
+            ("native segment selected", "onSecondaryContainer", warning),
+            ("native segment unselected", "onSurface", raised),
+            ("shared tab selected", "onPrimaryContainer", selected),
+            ("shared tab unselected", "onSurfaceVariant", raised),
+        ):
+            pair(f"{title} {label}", fg, bg, layer=fg if alpha else None, opacity=alpha)
+    pair("nested selected shared tab label", "onPrimaryContainer", selected,
+         layer="onPrimaryContainer", opacity=1 - .88 * .90)
+    pair("native tab indicator", "primary", page, GRAPHIC)
+
+    chip_bg = style("chip", "backgroundColor", card)
+    chip_selected = style("chip", "selectedColor", warning)
+    for state in ACTIVE_STATES:
+        for label, bg, fg in (("regular", chip_bg, "onSurfaceVariant"),
+                              ("selected", chip_selected, "onSecondaryContainer")):
+            alpha = flutter_ink(state)
+            pair(f"chip {label} {state_name(state)}", style("chip", "textColor", fg), bg,
+                 layer=fg if alpha else None, opacity=alpha)
+    # The shared selected chip fill also reaches chip variants with a neutral label.
+    pair("selected chip neutral label", "onSurfaceVariant", chip_selected)
+
+    for component, active_name, track_name in (
+        ("slider", "activeTrackColor", "inactiveTrackColor"), ("progress", "color", "trackColor"),
+    ):
+        fill, track = style(component, active_name, "primary"), style(component, track_name, selected)
+        pair(f"{component} active track", fill, track, GRAPHIC)
+        pair(f"{component} active on card", fill, card_bg, GRAPHIC)
+    pair("slider thumb against track", style("slider", "thumbColor", "primary"),
+         style("slider", "inactiveTrackColor", selected), GRAPHIC)
+    pair("slider thumb on card", style("slider", "thumbColor", "primary"), card_bg, GRAPHIC)
+    pair("switch selected thumb", "onPrimary", "primary", GRAPHIC)
+    pair("switch selected thumb while interacting", selected, "primary", GRAPHIC)
+    pair("switch inactive thumb", "outline", highest, GRAPHIC)
+    pair("switch inactive thumb while interacting", "onSurfaceVariant", highest, GRAPHIC)
+    for bg in (style("scrollbar", "trackColor", card), page, card_bg):
+        pair("scrollbar thumb", style("scrollbar", "thumbColor", "outline"), bg, GRAPHIC)
+    require(p["outlineVariant"] != p["surface"], "decorative separators must remain visible")
+
+    buttons(measure, components)
+    for fg in ("primary", "error"):
+        for bg in (page, card_bg, raised, high, warning):
+            pair(f"app-local {fg} label on {bg}", fg, bg)
+        for bg in (sidebar_bg, sidebar_selected):
+            pair(f"Monitor rail {fg} count pill", fg, bg, layer=fg, opacity=.16)
+        pair(f"Monitor {fg} tag", fg, card_bg, layer=fg, opacity=.14)
+    pair("Workspace target", "primary", page, layer="primary", opacity=.08)
+    pair("Monitor Desk helper", "outline", card_bg)
+    pair("selected metric note or label", "onSecondaryContainer", warning)
+    pair("selected file row text", "onSurface", card_bg, layer=warning, opacity=.55)
+
+    for bg in (page, card_bg):
+        pair("direct shared seed border", seed, bg, GRAPHIC, scope="upstream")
+    pair("file row focus border uses the shared seed", seed, card_bg, GRAPHIC,
+         layer=warning, opacity=.55, scope="upstream")
+    pair("disk track uses the shared seed", seed, card_bg, GRAPHIC,
+         layer=0xFF7D7D7D, opacity=37 / 255, scope="upstream")
+    for bg in (page, raised):
+        for label, color in (("red", 0xFFF44336), ("green", 0xFF4CAF50),
+                             ("grey", 0xFF757575 if bg == page else 0xFF9E9E9E)):
+            pair(f"connection statistics {label}", color, bg, scope="upstream")
+    pair("connection statistics orange success rate", 0xFFFF9800, page, scope="upstream")
+    pair("Monitor connected icon hardcodes Material green", 0xFF4CAF50, card_bg, GRAPHIC, scope="upstream")
+    pair("Monitor restart notice hardcodes Material orange", 0xFFFF9800, card_bg, scope="upstream")
+
+
+ANSI = ("black", "red", "green", "yellow", "blue", "magenta", "cyan", "white")
+BRIGHT = tuple("bright" + name.title() for name in ANSI)
+TERMINAL_FIELDS = {
+    "foreground", "background", "cursor", "selection", "selectionCursor", "searchHitForeground",
+    "searchHitBackground", "searchHitBackgroundCurrent", *ANSI, *BRIGHT,
 }
 
 
-def read(path):return tomllib.loads(path.read_text(encoding='utf-8'))
+def profiles(rows):
+    raw = json.loads((ROOT / "docs/terminal-palettes.json").read_text(encoding="utf-8"))
+    profiles = raw["profiles"]
+    require(set(profiles) == {"original", "material"}, "terminal families")
+    for family, levels in profiles.items():
+        require(set(levels) == set(BG0), f"{family}: terminal contrast levels")
+        for level, modes in levels.items():
+            require(set(modes) == {"dark", "light"}, "terminal modes")
+            for mode, palette in modes.items():
+                require(set(palette) == TERMINAL_FIELDS
+                        and all(re.fullmatch(r"0x[0-9A-F]{8}", color) for color in palette.values()),
+                        "terminal theme fields and ARGB")
+                palette = {key: int(value, 16) for key, value in palette.items()}
+                modes[mode] = palette
+                require(palette["background"] == BG0[level][mode], "terminal bg0")
+                overlays = {"cursor", "selection"}
+                require(all(color >> 24 == 255 for name, color in palette.items() if name not in overlays),
+                        "ANSI and terminal inks must be opaque")
+                require(all(0 < palette[name] >> 24 < 255 for name in overlays), "translucent glyph overlays")
+                require(len({palette[name] for name in (*ANSI, *BRIGHT)}) == 16, "distinct ANSI entries")
 
-def channels(n):return tuple((n>>i&255)/255 for i in (16,8,0,24))
-
-def rgba_over(top,bottom):
-    a=top[3]+bottom[3]*(1-top[3])
-    if not a:return (0.,0.,0.,0.)
-    return tuple((x*top[3]+y*bottom[3]*(1-top[3]))/a for x,y in zip(top[:3],bottom[:3]))+(a,)
-
-def luminance(c):return sum(w*(x/12.92 if x<=.04045 else ((x+.055)/1.055)**2.4) for w,x in zip((.2126,.7152,.0722),c[:3]))
-
-def ratio(a,b):
-    check(b[3]==1,'opaque substrate required')
-    x,y=sorted((luminance(rgba_over(a,b)),luminance(b)))
-    return (y+.05)/(x+.05)
-
-def paint(n):return '#'+''.join(f'{math.floor(x*255+.5):02X}' for x in n[:3])
-
-def ink(bg,fg,opacity):return rgba_over((*fg[:3],opacity),bg)
-
-def metadata(require_versions=False):
-    repo=read(ROOT/'repo.toml');check(type(repo.get('schema')) is int and repo['schema']==1 and isinstance(repo.get('name'),str) and repo['name'].strip(),'repo metadata')
-    themes=ROOT/'themes'
-    check({p.stem for p in themes.glob('*.toml')}==set(IDS),'exact listing IDs')
-    check({p.name for p in themes.iterdir() if p.is_dir()}==set(IDS),'exact package IDs')
-    from urllib.parse import urlparse
-    for tid in IDS:
-        m=read(themes/tid/'manifest.toml');v=read(themes/(tid+'.toml'))
-        check(v.get('id')==tid and v.get('name')==m.get('name'),'listing identity')
-        check(v.get('license')=='MIT' and isinstance(v.get('homepage'),str) and urlparse(v['homepage']).scheme=='https' and bool(urlparse(v['homepage']).netloc),'license/homepage')
-        d=v.get('description');check(isinstance(d,dict) and {'en','zh','zh-TW'}<=d.keys() and all(isinstance(x,str) and x.strip() for x in d.values()),'description')
-        versions=v.get('version',[]);check(isinstance(versions,list),'version array')
-        check(not require_versions or bool(versions),f'{tid}: no published version')
-        seen=set()
-        for x in versions:
-            check(isinstance(x,dict),'version table')
-            ver=x.get('version');check(isinstance(ver,str) and re.fullmatch(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?',ver) and ver not in seen,'unique version');seen.add(ver)
-            check(type(x.get('schema_min')) is int and type(x.get('schema_max')) is int and 1<=x['schema_min']<=x['schema_max'] and x['schema_min']<=4 and x['schema_max']>=3,'version schema')
-            check(isinstance(x.get('sha256'),str) and re.fullmatch('[0-9a-f]{64}',x['sha256']) and type(x.get('size')) is int and 0<x['size']<=16*1024*1024,'version digest/size')
-            check('url' in x and 'path' not in x and isinstance(x['url'],str) and urlparse(x['url']).scheme=='https' and bool(urlparse(x['url']).netloc),'version URL')
-    return all(read(themes/(tid+'.toml')).get('version') for tid in IDS)
+                measure = Measurements(rows, {"family": family, "level": level, "mode": mode}, palette)
+                canonical = anchors(family, mode)
+                resources = {"cpu": "yellow", "memory": "purple", "disk": "orange", "network": "aqua"}
+                require(raw["resourceAnchors"][family][mode] == {
+                    resource: f"#{canonical[hue] & 0xFFFFFF:06X}" for resource, hue in resources.items()
+                }, "resource anchors")
+                chromatic = (*ANSI[1:7], *BRIGHT[1:7])
+                for name in ("foreground", "brightBlack", *chromatic):
+                    measure.pair(f"terminal {name}", name, "background")
+                    measure.pair(f"selected terminal {name}", name, "background",
+                                 layer="selection", over_glyphs=True)
+                for normal, bright in zip(ANSI[1:7], BRIGHT[1:7]):
+                    pair_order = luminance(measure.color(bright)) > luminance(measure.color(normal))
+                    require(pair_order == (mode == "dark"), f"ANSI intensity direction for {normal}")
+                    measure.pair(f"ANSI normal/bright distinction {normal}", bright, normal, 1.12)
+                for slot in (*ANSI, *BRIGHT):
+                    neutral = max(("black", "brightWhite"),
+                                  key=lambda name: contrast(measure.color(name), measure.color(slot)))
+                    measure.pair(f"ANSI background {slot} with {neutral}", neutral, slot)
+                # Literal black/white remain available to applications that paint ANSI backgrounds.
+                for name in ("white", "brightWhite"):
+                    measure.pair(f"ANSI black on {name}", "black", name)
+                    measure.pair(f"ANSI {name} on black", name, "black")
+                neutral_ink = "black" if mode == "light" else "white"
+                measure.pair(f"ordinary ANSI neutral ({neutral_ink})", neutral_ink, "background")
+                measure.pair("terminal cursor", "cursor", "background", GRAPHIC)
+                measure.pair("selected terminal cursor", "cursor", "background", GRAPHIC,
+                             layer="selection", over_glyphs=True)
+                measure.pair("terminal selection accent", "selectionCursor", "background", GRAPHIC,
+                             layer="selection", over_glyphs=True)
+                for slot in ("searchHitBackground", "searchHitBackgroundCurrent"):
+                    measure.pair(f"terminal {slot}", "searchHitForeground", slot)
+                    measure.pair(f"terminal {slot} indicator", slot, "background", GRAPHIC, scope="visual_cue")
+    return profiles
 
 
-def measure(rows,identity,p,c,seed,mode):
-    def col(v):return channels(p[v] if isinstance(v,str) else v)
-    def add(context,fg,bg,target=4.5,*,layer=None,opacity=0,kind='gate',substrate=None):
-        a=col(fg);b=col(bg)
-        if b[3]<1:
-            check(substrate is not None,'missing substrate');b=rgba_over(b,col(substrate))
-        if layer is not None:b=ink(b,col(layer),opacity)
-        r=ratio(a,b)
-        rows.append(dict(identity,scope=kind,context=context,foreground=paint(rgba_over(a,b)),background=paint(b),ratio=round(r,8),target=target,status='PASS' if r>=target else 'FAIL'))
-    for bg in BG_ROLES:
-        for fg in ('onSurface','onSurfaceVariant','primary','error'):
-            add(f'{fg} on {bg}',fg,bg)
-    for name in ('primary','secondary','tertiary','error'):
-        on='on'+name.title()
-        for suffix in ('','Container'):add(on+suffix,on+suffix,name+suffix)
-        if name!='error':
-            for bg in ('Fixed','FixedDim'):
-                for fg in ('Fixed','FixedVariant'):add(on+fg+' on '+name+bg,on+fg,name+bg)
-    add('inverse text','onInverseSurface','inverseSurface');add('inverse action','inversePrimary','inverseSurface')
-    # Actual source consumers from the independent audit of the pinned revisions.
-    low='surfaceContainerLow';sheet='surfaceContainer';pc='primaryContainer';sc='secondaryContainer'
-    for bg in (low,sheet,sc):add('raw primary text','primary',bg)
-    for bg,opacity,context in [('surface',.08,'Workspace target'),(low,.14,'Monitor update tag'),(low,.16,'Monitor unselected count'),(pc,.16,'Monitor selected count')]:
-        add(context,'primary',bg,layer='primary',opacity=opacity)
-    for bg in (low,pc):add('Monitor alert count','error',bg,layer='error',opacity=.16)
-    add('Monitor Desk helper text','outline',low)
-    add('navigation label',c['navigation']['selectedLabelColor'],low)
-    add('rail selected label',c['navigation']['selectedLabelColor'],pc)
-    add('navigation icon','onPrimaryContainer',pc,3)
-    add('tooltip',c['tooltip']['textColor'],c['tooltip']['backgroundColor'])
-    add('badge',c['badge']['textColor'],c['badge']['backgroundColor'])
-    add('input focus text','primary',low);add('input error border',c['input']['errorBorderColor'],low,3)
-    add('search outline','outline',low,3);add('search icon',c['search']['iconColor'],low,3)
-    add('progress fill',c['progress']['color'],c['progress']['trackColor'],3)
-    add('slider active',c['slider']['activeTrackColor'],c['slider']['inactiveTrackColor'],3)
-    add('slider thumb',c['slider']['thumbColor'],low,3)
-    for fg,bg in [('onPrimary','primary'),('onSecondaryContainer',sc),('primary',low)]:
-        for state,alpha in [('rest',0),('hover',20/255),('focus',26/255),('press',26/255),('hover+focus',20/255),('press+focus',26/255)]:
-            add(f'native Filled/Tonal/Elevated {fg} {state}',fg,bg,layer=fg,opacity=alpha)
-    # Transparent outlined fill: local destructive foreground is preserved.
-    for bg in ('surface',low,sheet):
-        for state,alpha in [('rest',0),('hover',20/255),('focus',26/255),('press',26/255),('hover+focus',20/255),('press+focus',26/255)]:
-            add(f'outlined {state}','primary',bg,layer='primary',opacity=alpha)
-            add(f'Services Stop {state}','error',bg,layer='error',opacity=alpha)
-            add(f'outlined focus border {state}','primary',bg,3,layer='primary',opacity=alpha)
-            add(f'Aqua action {state}',c['textButton']['foregroundColor'],bg,layer='primary',opacity=alpha)
-            add(f'complementary icon {state}',c['iconButton']['foregroundColor'],bg,3,layer='onSurfaceVariant',opacity=alpha)
-    for bg in (low,sc):
-        for state,alpha in [('rest',0),('hover',10/255),('focus/press',31/255)]:
-            add(f'chip {state}',c['chip']['textColor'],bg,layer=0xFFFFFFFF if mode=='dark' else 0xFF000000,opacity=alpha)
-    # These uses are app-owned, not guaranteed correctable in a manifest.
-    for bg in (low,'surface'):
-        add('legacy direct seed border',seed,bg,3,kind='upstream')
-    add('legacy selected row seed',seed,low,3,layer=sc,opacity=.55,kind='upstream')
-    add('legacy disk track seed',seed,low,3,layer=0xFF7D7D7D,opacity=37/255,kind='upstream')
-    for bg in (low,sheet):
-        for name,number in [('red',0xFFF44336),('green',0xFF4CAF50),('grey',0xFF757575 if bg==low else 0xFF9E9E9E)]:
-            add('hardcoded statistics '+name,number,bg,kind='upstream')
-    for bg in (low,'surfaceContainer',sc):add('selection fill only',pc,bg,3,kind='conditional')
+def terminals(rows, identity, app, seed, profiles, family, level):
+    app_mode = identity["mode"]
+    for setting in ("followApp", "light", "dark"):
+        mode = app_mode if setting == "followApp" else setting
+        appearance = {**identity, "terminal_setting": setting, "terminal_mode": mode}
+        stock = {
+            "page": app["surface"],
+            "background": 0xFF000000 if mode == "dark" else 0xFFFFFFFF,
+            "foreground": 0xFFCCCCCC if mode == "dark" else 0xFF000000,
+            "key": 0xFFFFFFFF if mode == "dark" else 0xFF000000,
+            "armed": seed,
+        }
+        upstream = Measurements(rows, appearance, stock)
+        for surface, background in (("SSH page", "page"), ("floated SSH", "background")):
+            for label, fg in (("text", "foreground"), ("key", "key"), ("armed key", "armed")):
+                upstream.pair(f"stock {surface} {label}", fg, background, scope="upstream")
+
+        # The separately applicable patch chooses a full xterm theme once.
+        # All text and keys in either host share that profile's backdrop.
+        patched = Measurements(rows, appearance, profiles[family][level][mode])
+        for surface in ("SSH page", "floated SSH"):
+            patched.pair(f"profile {surface} text", "foreground", "background")
+            for label, fg in (("key", "foreground"), ("armed key", "selectionCursor")):
+                for state in ACTIVE_STATES[:4]:
+                    alpha = flutter_ink(state)
+                    patched.pair(f"profile {surface} {label} {state_name(state)}", fg, "background",
+                                 layer="foreground" if alpha else None, opacity=alpha)
+
+
+def check_variant(palette, components, family, mode, level, accent):
+    require(set(palette) == ROLES and palette["surfaceTint"] == 0, "46 explicit roles")
+    require(all(color >> 24 == 255 for role, color in palette.items() if role != "surfaceTint"),
+            "opaque roles")
+    require(palette["surface"] == BG0[level][mode], f"canonical {mode} {level} bg0")
+    lightness = [luminance(channels(palette[role])) for role in LADDER]
+    require(lightness == sorted(set(lightness), reverse=mode == "light"), "distinct surface ladder")
+    for component in STATEFUL:
+        for state in (*STATES, "base"):
+            values = components[component] if state == "base" else components[component].get(state, {})
+            require(not {"backgroundColor", "foregroundColor", "overlayColor"} & values.keys(),
+                    f"{component}.{state}: Flutter button pairs and ink")
+    require(not components.get("switch") and set(components["segmented"]) == {"radius"}
+            and "textColor" not in components["chip"], "stateful native defaults")
+    canonical = anchors(family, mode)
+    for role, hue in (("primary", accent), ("error", "red"), ("secondary", "orange"), ("tertiary", "purple")):
+        check_hue(palette[role], canonical[hue], role)
+    for component, field, hue in (
+        ("tooltip", "backgroundColor", "yellow"), ("progress", "color", accent),
+        ("input", "errorBorderColor", "red"), ("search", "iconColor", "blue"),
+    ):
+        value = components[component][field]
+        check_hue(palette[value] if isinstance(value, str) else value, canonical[hue], component)
+
+
+def archive(path, output):
+    archive_path = output / f"{path.parent.name}-preview.fsbt"
+    with zipfile.ZipFile(archive_path) as package:
+        require(package.namelist() == ["manifest.toml"] and package.testzip() is None
+                and package.read("manifest.toml") == path.read_bytes(), "package bytes and root path")
+    data = archive_path.read_bytes()
+    return {"name": archive_path.name, "sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}
+
+
+def validator(path):
+    if path is None:
+        return None
+    raw = path.read_bytes()
+    git_blob = hashlib.sha1(f"blob {len(raw)}\0".encode() + raw).hexdigest()
+    require(git_blob == SCHEMA_BLOB, "schema must match the reviewed ServerBox Git blob")
+    schema = json.loads(raw)
+    from jsonschema import validators
+    return validators.validator_for(schema)(schema)
+
+
+def audit(schema, package_dir, published):
+    rows, packages = [], []
+    terminal = profiles(rows)
+    appearances = 0
+    for theme_id, keys in VARIANTS.items():
+        path = ROOT / "themes" / theme_id / "manifest.toml"
+        require(not path.is_symlink() and not path.parent.is_symlink() and path.stat().st_size <= 64 * 1024
+                and {file.name for file in path.parent.iterdir()} == {"manifest.toml"}, "package contents")
+        manifest = read(path)
+        if schema is not None:
+            schema.validate(manifest)
+        variants = manifest.pop("variants")
+        require(list(variants) == list(keys), "manifest variant order")
+        family = "material" if theme_id.endswith("-material") else "original"
+        name = "Gruvbox Material" if family == "material" else "Gruvbox"
+        require(set(manifest) == {"id", "name", "modes", "schema", "colors", "components"}
+                and manifest["id"] == theme_id and manifest["name"] == name
+                and manifest["modes"] == ["light", "dark"] and manifest["schema"] == {"min": 3, "max": 4},
+                "manifest identity and compatibility")
+        check_colors(manifest["colors"])
+        check_components(manifest["components"])
+        seeds, palettes = {}, {}
+        for key, variant in variants.items():
+            require(set(variant) <= {"name", "colors", "components"}
+                    and variant["name"] == key.replace("_", " ").title(), f"variant {key} shape/label")
+            overrides = {k: value for k, value in variant.items() if k != "name"}
+            check_colors(overrides.get("colors", {}))
+            check_components(overrides.get("components", {}))
+            effective = merge(manifest, overrides)
+            if key == keys[0]:
+                require(effective == manifest, "first variant inherits the complete package defaults")
+            colors = effective["colors"]
+            level, accent = key.split("_") if "_" in key else ("medium", key)
+            require(colors["mode"] == 0 and colors["systemColor"] is False, "default System mode")
+            seed = colors["seed"]
+            require(seed >> 24 == 255 and seeds.setdefault(accent, seed) == seed, "shared seed by accent")
+            palettes[key] = colors["palette"]
+            for mode, palette in colors["palette"].items():
+                components = component_styles(effective["components"], mode)
+                check_variant(palette, components, family, mode, level, accent)
+                identity = {"id": theme_id, "variant": key, "mode": mode}
+                measure_components(Measurements(rows, identity, palette), components, seed)
+                terminals(rows, identity, palette, seed, terminal, family, level)
+                appearances += 1
+            day, night = (colors["palette"][mode] for mode in ("light", "dark"))
+            require(all(day[role] == night[role] for role in ROLES if "Fixed" in role), "fixed roles")
+        require(seeds["green"] != seeds["blue"], "distinct Green and Blue seed")
+        for green, blue in zip(keys[::2], keys[1::2]):
+            for mode in ("dark", "light"):
+                pg, pb = palettes[green][mode], palettes[blue][mode]
+                require(all(pg[role] == pb[role] for role in ROLES if "primary" not in role.lower()),
+                        "accent variants retain the same neutral and semantic roles")
+                require(pg["primary"] != pb["primary"] and pg["primaryContainer"] != pb["primaryContainer"],
+                        "both Green and Blue selections must resolve")
+        if package_dir:
+            packages.append(archive(path, package_dir))
+    require(appearances == 16, "eight variants in both app modes")
+    if package_dir:
+        require({file.name for file in package_dir.glob("*.fsbt")} == {p["name"] for p in packages},
+                "exact preview package set")
+    scopes = ("theme", "upstream", "visual_cue")
+    counts = {scope: {status: sum(row["scope"] == scope and row["status"] == status for row in rows)
+                      for status in ("PASS", "FAIL")} for scope in scopes}
+    return {
+        "appearances": appearances, "app_terminal_combinations": appearances * 3,
+        "terminal_profiles": 12, "counts": counts, "full_official_schema_checked": schema is not None,
+        "listing_versions_present": all(published.values()), "packages": packages,
+        "requires_runtime": [
+            "Android SSH tab and floating SSH, virtual-key states and app/terminal mode changes",
+            "Custom SSH image and opacity, drawn ANSI cells, selection handles and tapped keys",
+            "Flutter focus, hover, press, disabled appearance and selected cues on real routes",
+        ],
+        "rows": rows,
+    }
 
 
 def main():
-    ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--schema',type=Path);ap.add_argument('--json',type=Path);ap.add_argument('--packages',type=Path);ap.add_argument('--require-versions',action='store_true');args=ap.parse_args()
-    schema=None
-    if args.schema:
-        raw=args.schema.read_bytes()
-        check(hashlib.sha1(f'blob {len(raw)}\0'.encode()+raw).hexdigest()=='174e1d7bff0b825ddd00d79fe95f7abfc8f5685e','schema must match pinned upstream Git blob')
-        schema=json.loads(raw)
-    check(abs(ratio(channels(0xFFFFFFFF),channels(0xFF000000))-21)<1e-10,'WCAG oracle')
-    check(paint(rgba_over(channels(0x80FF0000),channels(0xFF0000FF)))=='#80007F','alpha oracle')
-    has_versions=metadata(args.require_versions);rows=[];packages=[];appearances=0
-    for tid,keys in IDS.items():
-        path=ROOT/'themes'/tid/'manifest.toml';m=read(path)
-        check(not path.parent.is_symlink() and not path.is_symlink() and path.stat().st_size<=64*1024 and set(x.name for x in path.parent.iterdir())=={'manifest.toml'},'package contents')
-        check(set(m)=={'id','name','modes','schema','colors','components','variants'} and m['name']==('Gruvbox Material' if tid.endswith('-material') else 'Gruvbox') and m['id']==tid and m['modes']==['light','dark'] and m['schema']=={'min':3,'max':4},'package identity/schema')
-        check(list(m['variants'])==keys,'variant order');check_colors(m['colors']);check_components(m['components'])
-        if schema:
-            from jsonschema import validators
-            validators.validator_for(schema)(schema).validate(m)
-        base={k:v for k,v in m.items() if k!='variants'};resolved={}
-        for key,v in m['variants'].items():
-            check(v['name']==key.replace('_',' ').title() and set(v)<= {'name','colors','components'},'variant fields')
-            check_colors(v.get('colors',{}));check_components(v.get('components',{}))
-            effective=merge(base,{k:x for k,x in v.items() if k!='name'})
-            col=effective['colors'];check(col['mode']==0 and col['systemColor'] is False,'mode')
-            level,accent=key.split('_') if '_' in key else ('medium',key);family='material' if tid.endswith('-material') else 'original'
-            for mode in ('dark','light'):
-                p=col['palette'][mode];c=resolved_components(effective['components'],mode)
-                anchors=dict(zip('red orange yellow green aqua blue purple'.split(),[int('FF'+h,16) for h in CANONICAL[family,mode].split()]))
-                check(set(p)==ROLES and p['surfaceTint']==0 and all(x>>24==255 for k,x in p.items() if k!='surfaceTint'),'explicit roles')
-                check(p['surface']==BASE[level][mode] and p['secondary']==anchors['orange'] and p['tertiary']==anchors['purple'],'canonical colors')
-                check(c['progress']['color']==anchors[accent] and c['slider']['thumbColor']==anchors[accent] and c['tooltip']['backgroundColor']==anchors['yellow'] and c['input']['errorBorderColor']==anchors['red'],'canonical visible accents')
-                check(c['badge']['backgroundColor']=='tertiary' and c['chip']['selectedColor']=='secondaryContainer','supporting accents')
-                check(not {'backgroundColor','foregroundColor','overlayColor'} & c['button'].keys() and not {'backgroundColor','foregroundColor','overlayColor','hovered','pressed'} & c['outlinedButton'].keys(),'native button semantics')
-                for item in ('card','button','appBar','dialog','sheet','menu'):check(c[item]['surfaceTintColor']==0,'component tint')
-                ladder=[luminance(channels(p[r])) for r in ('surfaceContainerLowest','surfaceContainerLow','surfaceContainer','surfaceContainerHigh','surfaceContainerHighest')]
-                check(ladder==sorted(ladder,reverse=mode=='light'),'surface ladder')
-                resolved[key,mode]=p;appearances+=1
-                measure(rows,{'id':tid,'variant':key,'mode':mode},p,c,col['seed'],mode)
-            check(all(resolved[key,'light'][r]==resolved[key,'dark'][r] for r in ROLES if 'Fixed' in r),'fixed roles invariant')
-        for level in ('medium','hard','soft') if family=='material' else ('medium',):
-            for mode in ('dark','light'):
-                g,b=(level+'_green',level+'_blue') if family=='material' else ('green','blue');pg,pb=resolved[g,mode],resolved[b,mode]
-                check(all(pg[r]==pb[r] for r in ROLES if 'Primary' not in r and not r.startswith('primary')),'accent changes non-primary roles')
-        if args.packages:
-            f=args.packages/(tid+'-preview.fsbt')
-            with zipfile.ZipFile(f) as z:check(z.namelist()==['manifest.toml'] and z.testzip() is None and z.read('manifest.toml')==path.read_bytes(),'package bytes')
-            packages.append({'name':f.name,'sha256':hashlib.sha256(f.read_bytes()).hexdigest(),'size':f.stat().st_size})
-    check(appearances==16,'appearance count')
-    if args.packages:check({p.name for p in args.packages.glob('*.fsbt')}=={tid+'-preview.fsbt' for tid in IDS},'exact preview set')
-    counts={k:{s:sum(r['scope']==k and r['status']==s for r in rows) for s in ('PASS','FAIL')} for k in ('gate','upstream','conditional')}
-    result={'appearances':appearances,'counts':counts,'full_official_schema_checked':schema is not None,'listing_versions_present':has_versions,'packages':packages,'rows':rows}
-    print(json.dumps({k:v for k,v in result.items() if k!='rows'},indent=2))
-    for row in rows:
-        if row['scope']=='gate' and row['status']=='FAIL':print(row)
-    if args.json:args.json.write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8')
-    return int(bool(counts['gate']['FAIL']))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--schema", type=Path)
+    parser.add_argument("--json", type=Path)
+    parser.add_argument("--packages", type=Path)
+    parser.add_argument("--require-versions", action="store_true")
+    args = parser.parse_args()
+    references()
+    report = audit(validator(args.schema), args.packages, listings(args.require_versions))
+    print(json.dumps({key: value for key, value in report.items() if key != "rows"}, indent=2))
+    for row in report["rows"]:
+        if row["scope"] == "theme" and row["status"] == "FAIL":
+            print(json.dumps(row))
+    if args.json:
+        args.json.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    return int(bool(report["counts"]["theme"]["FAIL"]))
 
-if __name__=='__main__':raise SystemExit(main())
+
+if __name__ == "__main__":
+    raise SystemExit(main())

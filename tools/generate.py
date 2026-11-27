@@ -1,353 +1,551 @@
 #!/usr/bin/env python3
-"""Generate the two self-contained manifests; no third-party dependencies."""
-from pathlib import Path
+"""Generate the FSBT manifests and the separate xterm palette specification."""
+from __future__ import annotations
+
+import argparse
+from colorsys import hls_to_rgb, rgb_to_hls
+from dataclasses import dataclass
+from functools import cache
 import json
-import os
+from pathlib import Path
 import tempfile
 
+
 ROOT = Path(__file__).resolve().parents[1]
-SB = 'fa7941a0b3d4dda154cbf85b007dc6348812e679'
-SCHEMA_URL = f'https://raw.githubusercontent.com/lollipopkit/flutter_server_box/{SB}/docs/schemas/fsbt-manifest.schema.json'
-NAMES = ('red','orange','yellow','green','aqua','blue','purple')
-ANCHORS = {
-    'original': {'dark': 'FB4934 FE8019 FABD2F B8BB26 8EC07C 83A598 D3869B', 'light': '9D0006 AF3A03 B57614 79740E 427B58 076678 8F3F71'},
-    'material': {'dark': 'EA6962 E78A4E D8A657 A9B665 89B482 7DAEA3 D3869B', 'light': 'C14A4A C35E0A B47109 6C782E 4C7A5D 45707A 945E80'},
+SERVERBOX = "fa7941a0b3d4dda154cbf85b007dc6348812e679"
+SCHEMA_URL = (
+    f"https://raw.githubusercontent.com/lollipopkit/flutter_server_box/{SERVERBOX}"
+    "/docs/schemas/fsbt-manifest.schema.json"
+)
+FAMILIES = {"original": "Gruvbox", "material": "Gruvbox Material"}
+MODES = ("dark", "light")
+LEVELS = ("medium", "hard", "soft")
+ACCENTS = ("green", "blue")
+TEXT = 4.55  # Leave room for rounding state layers to eight bits.
+GRAPHIC = 3.05
+BUTTON_INK = 26 / 255
+
+
+# Canonical palette (colors/gruvbox.vim and autoload/gruvbox_material.vim).
+BG0 = {
+    "dark": {"hard": "1D2021", "medium": "282828", "soft": "32302F"},
+    "light": {"hard": "F9F5D7", "medium": "FBF1C7", "soft": "F2E5BC"},
 }
-# bg_dim, bg0, bg1, bg2, bg3, bg4, bg5, bg_statusline2.
-MATERIAL_BG = {
-    ('hard','dark'): '141617 1D2021 282828 282828 3C3836 3C3836 504945 32302F',
-    ('medium','dark'): '1B1B1B 282828 32302F 32302F 45403D 45403D 5A524C 3A3735',
-    ('soft','dark'): '252423 32302F 3C3836 3C3836 504945 504945 665C54 46413E',
-    ('hard','light'): 'F3EAC7 F9F5D7 F5EDCA F3EAC7 F2E5BC EEE0B7 EBDBB2 F3EAC7',
-    ('medium','light'): 'F2E5BC FBF1C7 F4E8BE F2E5BC EEE0B7 E5D5AD DDCCAB F2E5BC',
-    ('soft','light'): 'EBDBB2 F2E5BC EDDEB5 EBDBB2 E6D5AE DAC9A5 D5C4A1 EBDBB2',
+DARK_NEUTRALS = ("3C3836", "504945", "665C54", "7C6F64")
+LIGHT_NEUTRALS = ("EBDBB2", "D5C4A1", "BDAE93", "A89984")
+GRAY = "928374"
+HUES = ("red", "orange", "yellow", "green", "aqua", "blue", "purple")
+ACCENT_ANCHORS = {
+    "original": {
+        "dark": "FB4934 FE8019 FABD2F B8BB26 8EC07C 83A598 D3869B",
+        "light": "9D0006 AF3A03 B57614 79740E 427B58 076678 8F3F71",
+    },
+    "material": {
+        "dark": "EA6962 E78A4E D8A657 A9B665 89B482 7DAEA3 D3869B",
+        "light": "C14A4A C35E0A B47109 6C782E 4C7A5D 45707A 945E80",
+    },
 }
-# Upstream visual selection backgrounds: red, green, blue, purple, yellow (only the first four are needed).
+ORIGINAL_NEUTRAL = dict(zip(HUES, "CC241D D65D0E D79921 98971A 689D6A 458588 B16286".split()))
+# The Material foreground pairs fg0 and fg1.
+MATERIAL_INK = {"dark": ("D4BE98", "DDC7A1"), "light": ("654735", "4F3829")}
+# Material bg_dim, bg1, bg_statusline2, bg3, bg5 (dark) or bg1–bg5 (light).
+MATERIAL_SURFACES = {
+    "dark": {
+        "hard": ("141617", BG0["dark"]["medium"], BG0["dark"]["soft"], *DARK_NEUTRALS[:2]),
+        "medium": ("1B1B1B", BG0["dark"]["soft"], "3A3735", "45403D", "5A524C"),
+        "soft": ("252423", DARK_NEUTRALS[0], "46413E", *DARK_NEUTRALS[1:3]),
+    },
+    "light": {
+        "hard": ("F5EDCA", "F3EAC7", BG0["light"]["soft"], "EEE0B7", LIGHT_NEUTRALS[0]),
+        "medium": ("F4E8BE", BG0["light"]["soft"], "EEE0B7", "E5D5AD", "DDCCAB"),
+        "soft": ("EDDEB5", LIGHT_NEUTRALS[0], "E6D5AE", "DAC9A5", LIGHT_NEUTRALS[1]),
+    },
+}
+# Material's visual feedback fills, in red/green/blue/purple order.
 MATERIAL_VISUAL = {
-    ('hard','dark'): '442E2D 333E34 2E3B3B 3C333B 473C29',
-    ('medium','dark'): '4C3432 3B4439 374141 443840 4F422E',
-    ('soft','dark'): '543937 424A3E 404946 4B3E45 574833',
-    ('hard','light'): 'F0DDC3 DDE5C2 D9E1CC EEE2D1 F9EABF',
-    ('medium','light'): 'F1D9B5 DEE2B6 DADEC0 EFDEC3 FAE7B3',
-    ('soft','light'): 'EFD2B3 D7D9AE D3D5B8 E8D4BA F3DEAA',
+    ("dark", "hard"): "442E2D 333E34 2E3B3B 3C333B",
+    ("dark", "medium"): "4C3432 3B4439 374141 443840",
+    ("dark", "soft"): "543937 424A3E 404946 4B3E45",
+    ("light", "hard"): "F0DDC3 DDE5C2 D9E1CC EEE2D1",
+    ("light", "medium"): "F1D9B5 DEE2B6 DADEC0 EFDEC3",
+    ("light", "soft"): "EFD2B3 D7D9AE D3D5B8 E8D4BA",
 }
-MIT = '''Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.'''
-NOTICES = {
-    'original': 'Palette adapted from morhetz/gruvbox (https://github.com/morhetz/gruvbox).\nUpstream README identifies the license as MIT/X11.\nUpstream author: Pavel Pertsev (morhetz). No dated copyright line or\nstandalone LICENSE was found at the pinned revision; no date is inferred.\nMIT/X11 permission and warranty notice (standard MIT form):\n\n' + MIT,
-    'material': 'Palette adapted from sainnhe/gruvbox-material (https://github.com/sainnhe/gruvbox-material).\nMIT License\n\nCopyright (c) 2020 sainnhe\n\n' + MIT,
-}
+DEEP_INK = MATERIAL_SURFACES["dark"]["hard"][0]
+PALE_INK = BG0["light"]["hard"]
 
 
-def rgb(h):
-    return tuple(int(h[i:i+2],16) for i in (0,2,4))
+def anchors(family, mode):
+    return dict(zip(HUES, ACCENT_ANCHORS[family][mode].split()))
 
 
-def mix(a,b,t):
-    return ''.join(f'{round(x+(y-x)*t):02X}' for x,y in zip(rgb(a),rgb(b)))
+def rgb(color):
+    return tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
 
 
-def lum(h):
-    def lin(x):
-        x/=255
-        return x/12.92 if x<=0.04045 else ((x+0.055)/1.055)**2.4
-    return sum(x*y for x,y in zip((0.2126,0.7152,0.0722),map(lin,rgb(h))))
+def hex_rgb(channels):
+    return "".join(f"{round(channel):02X}" for channel in channels)
 
 
-def contrast(a,b):
-    l1,l2=sorted((lum(a),lum(b)),reverse=True)
-    return (l1+0.05)/(l2+0.05)
+def blend(background, ink, opacity):
+    return hex_rgb(bg + (fg - bg) * opacity for bg, fg in zip(rgb(background), rgb(ink)))
 
 
-def accessible(h,bgs,target,endpoint):
-    # Smallest integral percentage RGB blend toward the specified endpoint.
-    for i in range(101):
-        v=mix(h,endpoint,i/100)
-        if min(contrast(v,bg) for bg in bgs)>=target:
-            return v
-    # Reject an impossible request rather than silently lowering the threshold.
-    raise ValueError((h,bgs,target,endpoint))
+@cache
+def luminance(color):
+    def linear(channel):
+        value = channel / 255
+        return value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+
+    return sum(weight * linear(value) for weight, value in zip((.2126, .7152, .0722), rgb(color)))
 
 
-def fg_on(bg):
-    choices=('141617','1D2021','282828','FBF1C7','F9F5D7','FFFFFF','000000')
-    # Prefer the warmest usable choices, with extra margin when possible.
-    for c in choices[:-2]:
-        if contrast(c,bg)>=5.0:
-            return c
-    return max(choices,key=lambda c:contrast(c,bg))
+def contrast(first, second):
+    low, high = sorted((luminance(first), luminance(second)))
+    return (high + .05) / (low + .05)
 
 
-def colors(family,mode):
-    return dict(zip(NAMES,ANCHORS[family][mode].split()))
+def lighter(color, amount):
+    hue, lightness, saturation = rgb_to_hls(*(value / 255 for value in rgb(color)))
+    return hex_rgb(value * 255 for value in hls_to_rgb(
+        hue, min(1, max(0, lightness + amount)), saturation
+    ))
 
 
-def surfaces(family,level,mode):
-    dark=mode=='dark'
-    if family=='original':
-        if dark:
-            dim,base,low,container,high,highest='1D2021','282828','32302F','3C3836',mix('3C3836','504945',.5),'504945'
-            lowest,bright=dim,highest
-            fg,variant='EBDBB2','D5C4A1'
-        else:
-            lowest,base,low,container,high,highest='F9F5D7','FBF1C7','F2E5BC','EBDBB2',mix('EBDBB2','D5C4A1',.5),'D5C4A1'
-            dim,bright=highest,lowest
-            fg,variant='3C3836','504945'
+def fit_tone(anchor, mode, usable):
+    """Move only HSL lightness, starting at the canonical anchor."""
+    direction = 1 if mode == "dark" else -1
+    for step in range(501):
+        candidate = lighter(anchor, direction * step / 500)
+        if usable(candidate):
+            return candidate
+    raise ValueError(f"No {mode} contrast tone for #{anchor}")
+
+
+def readable(anchor, mode, backgrounds, *, minimum=TEXT, ink=0):
+    return fit_tone(anchor, mode, lambda color: all(
+        contrast(color, blend(bg, color, ink) if ink else bg) >= minimum
+        for bg in backgrounds
+    ))
+
+
+def fill_pair(anchor, mode, *, ink=0):
+    """Return a colored fill and its warm foreground at rest and under ink."""
+    warm = (DEEP_INK, PALE_INK) if mode == "dark" else (PALE_INK, DEEP_INK)
+    for foreground in warm:
+        if contrast(foreground, blend(anchor, foreground, ink)) >= TEXT:
+            return anchor, foreground
+    foreground = max(warm, key=lambda color: contrast(color, anchor))
+    fill_mode = "dark" if foreground == DEEP_INK else "light"
+    fill = fit_tone(anchor, fill_mode, lambda color:
+                    contrast(foreground, blend(color, foreground, ink)) >= TEXT)
+    return fill, foreground
+
+
+def surfaces(family, level, mode):
+    page = BG0[mode][level]
+    if family == "material":
+        rungs = MATERIAL_SURFACES[mode][level]
+        if mode == "light":
+            rungs = (page, *rungs[:4])
+        foreground, quiet = MATERIAL_INK[mode]
+    elif mode == "dark":
+        low = blend(page, DARK_NEUTRALS[0], .5)
+        rungs = (BG0[mode]["hard"], low, DARK_NEUTRALS[0],
+                 blend(*DARK_NEUTRALS[:2], .5), DARK_NEUTRALS[1])
+        foreground, quiet = LIGHT_NEUTRALS[:2]
     else:
-        bdim,base,b1,b2,b3,b4,b5,st=MATERIAL_BG[level,mode].split()
-        if dark:
-            dim,lowest,low,container,high,highest,bright=bdim,bdim,b1,st,b3,b5,b5
-            fg,variant='D4BE98','DDC7A1'
-            # Keep the canonical text colors; cap the brightest raised surface
-            # to the nearest readable derivative of the upstream bg5.
-            highest=bright={'hard':'504945','medium':'514A45','soft':'524B46'}[level]
-        else:
-            dim,lowest,low,container,high,highest,bright=b5,base,b1,b2,b3,b4,base
-            fg,variant='654735','4F3829'
-    return dict(surface=base,onSurface=fg,surfaceDim=dim,surfaceBright=bright,
-                surfaceContainerLowest=lowest,surfaceContainerLow=low,
-                surfaceContainer=container,surfaceContainerHigh=high,
-                surfaceContainerHighest=highest,onSurfaceVariant=variant)
+        low = BG0[mode]["soft"]
+        rungs = (BG0[mode]["hard"], low, LIGHT_NEUTRALS[0],
+                 blend(*LIGHT_NEUTRALS[:2], .5), LIGHT_NEUTRALS[1])
+        foreground, quiet = DARK_NEUTRALS[:2]
+
+    lowest, low, container, high, highest = rungs
+    if family == "material" and level == "soft" and mode == "dark":
+        # Leave room for Material's 40% text selection tint on dialog fields
+        # while keeping body text warm and the canonical page surface intact.
+        container = blend(low, container, .5)
+    dim, bright = (lowest, highest) if mode == "dark" else (highest, lowest)
+    return {
+        "surface": page, "surfaceDim": dim, "surfaceBright": bright,
+        "surfaceContainerLowest": lowest, "surfaceContainerLow": low,
+        "surfaceContainer": container, "surfaceContainerHigh": high,
+        "surfaceContainerHighest": highest,
+    }, foreground, quiet
 
 
-def levels(family):
-    return ('medium',) if family=='original' else ('hard','medium','soft')
+# Semantic palette. The progress theme controls generic readings. ServerBox's
+# ChartPalette and StatePalette own per-series and status colors.
+SEMANTIC_HUES = {
+    "failure": "red",
+    "warning": "orange",
+    "attention": "yellow",
+    "success": "green",
+    "network": "aqua",
+    "information": "blue",
+    "specialized": "purple",
+}
+RESOURCE_HUES = {
+    "cpu": "attention", "memory": "specialized", "disk": "warning", "network": "network",
+}
 
 
-def containers(family,level,mode,hue):
-    if family=='material' and hue!='orange':
-        return dict(zip(('red','green','blue','purple','yellow'),MATERIAL_VISUAL[level,mode].split()))[hue]
-    return mix(surfaces(family,level,mode)['surface'],colors(family,mode)[hue],.20 if mode=='dark' else .17)
+@dataclass(frozen=True)
+class SemanticPalette:
+    accent: str
+    colors: dict[str, str]
+    resources: dict[str, str]
+    fills: dict[str, str]
 
 
-def choose_tone(anchor,mode,predicate):
-    endpoint='FFFFFF' if mode=='dark' else '000000'
-    for i in range(101):
-        v=mix(anchor,endpoint,i/100)
-        if predicate(v):return v
-    raise ValueError(('no accessible tone',anchor,mode))
+def semantic_palette(family, level, mode, accent):
+    palette = anchors(family, mode)
+    colors = {name: palette[hue] for name, hue in SEMANTIC_HUES.items()}
+    resources = {name: colors[use] for name, use in RESOURCE_HUES.items()}
+    page = BG0[mode][level]
+    fills = {hue: blend(page, value, .17 if mode == "dark" else .12)
+             for hue, value in palette.items()}
+    if family == "material":
+        fills.update(zip(("red", "green", "blue", "purple"),
+                         MATERIAL_VISUAL[mode, level].split()))
+    return SemanticPalette(palette[accent], colors, resources, fills)
 
 
-def accent_text(family,mode,hue):
-    # Shared per brightness across contrast levels. Include actual widget-local
-    # text uses and native ink rather than only the ColorScheme role pair.
-    raw=[]; ink=[]
-    for level in levels(family):
-        s=surfaces(family,level,mode)
-        raw += [v for k,v in s.items() if k.startswith('surface')]
-        if hue in ('green','blue','red'):
-            raw += [containers(family,level,mode,'orange')]
-            ink += [(s['surfaceContainerLow'],.16),(s['surface'],.08),(s['surfaceContainerLow'],.14)]
-            ink += [(containers(family,level,mode,h),.16) for h in ('green','blue')]
-    if hue=='aqua':
-        # TextButton's native ink uses primary, not the literal Aqua text.
-        raw += [mix(surfaces(family,l,mode)[role],accent_text(family,mode,a),26/255)
-                for l in levels(family) for a in ('green','blue')
-                for role in ('surfaceContainerLow','surfaceContainer')]
-    return choose_tone(colors(family,mode)[hue],mode,lambda v:
-        min(contrast(v,b) for b in raw)>=4.9 and
-        all(contrast(v,mix(b,v,a))>=4.75 for b,a in ink))
+# Component palette. Keep Flutter's stateful defaults for pairs the component
+# schema would replace with a single value (e.g. switches and chip labels).
+def component_palette(family, level, mode, accent):
+    semantic = semantic_palette(family, level, mode, accent)
+    surface_roles, foreground, quiet = surfaces(family, level, mode)
+    page = surface_roles["surface"]
+    low = surface_roles["surfaceContainerLow"]
+    raised = surface_roles["surfaceContainer"]
+    high = surface_roles["surfaceContainerHigh"]
+    highest = surface_roles["surfaceContainerHighest"]
+    warning = semantic.fills["orange"]
+    selections = {name: semantic.fills[name] for name in ACCENTS}
+    # Monitor places its own translucent count pill on top of the sidebar
+    # selection. Start its fill at the outer surface to keep that stack legible.
+    sidebar = {name: blend(surface_roles["surfaceContainerLowest"], fill, .55)
+               for name, fill in selections.items()}
+    surfaces_and_fills = (*surface_roles.values(), *selections.values(), warning)
+    text_backgrounds = (page, low, raised, high, *selections.values(), warning)
 
+    def action(anchor, backgrounds, sidebar_fills):
+        # Action labels, including app-local counter pills and destructive
+        # outlined buttons. Monitor's count pills have a stronger 16% fill.
+        return fit_tone(anchor, mode, lambda color:
+                        all(contrast(color, bg) >= TEXT for bg in backgrounds)
+                        and all(contrast(color, blend(bg, color, .16)) >= TEXT
+                                for bg in (page, *sidebar_fills))
+                        and contrast(color, blend(low, color, .14)) >= TEXT
+                        and all(contrast(color, blend(bg, color, BUTTON_INK)) >= TEXT
+                                for bg in (page, low, raised)))
 
-def container_foreground(anchor,bg,mode):
-    # Flutter tonal buttons use the on-container color as ink. Allow margin.
-    return choose_tone(anchor,mode,lambda v: contrast(v,bg)>=5 and contrast(v,mix(bg,v,26/255))>=4.65)
+    canonical = anchors(family, mode)
+    primaries = {name: action(canonical[name], text_backgrounds, (sidebar[name],))
+                 for name in ACCENTS}
+    primary = primaries[accent]
+    error = action(semantic.colors["failure"], text_backgrounds, sidebar.values())
+    # Flutter paints text selection behind the glyphs. The primary itself
+    # still has a separate 3:1 requirement as the caret and focus indicator.
+    selected_text_backgrounds = [blend(bg, color, .4) for bg in (page, low, raised)
+                                 for color in primaries.values()]
+    on_surface = fit_tone(foreground, mode, lambda color:
+                          all(contrast(color, bg) >= TEXT for bg in surfaces_and_fills)
+                          and all(contrast(color, blend(bg, color, BUTTON_INK)) >= TEXT
+                                  for bg in text_backgrounds)
+                          and all(contrast(color, bg) >= TEXT for bg in selected_text_backgrounds))
+    on_variant = fit_tone(quiet, mode, lambda color:
+                          contrast(color, highest) >= TEXT
+                          and all(contrast(color, blend(bg, color, .12)) >= TEXT
+                                  for bg in text_backgrounds))
+    outline = readable(GRAY, mode, text_backgrounds + (highest,))
+    neutral_edge = blend(page, GRAY, .46 if mode == "dark" else .42)
+    roles = dict(surface_roles, onSurface=on_surface, onSurfaceVariant=on_variant,
+                 outline=outline, outlineVariant=neutral_edge)
+    dark_anchors = anchors(family, "dark")
+    light_anchors = anchors(family, "light")
+    for role, hue, anchor in (
+        ("primary", accent, primary),
+        ("secondary", "orange", semantic.colors["warning"]),
+        ("tertiary", "purple", semantic.colors["specialized"]),
+        ("error", "red", error),
+    ):
+        title = role.capitalize()
+        state_ink = BUTTON_INK if role == "primary" else 0
+        roles[role], roles[f"on{title}"] = fill_pair(anchor, mode, ink=state_ink)
+        container = semantic.fills[hue]
+        roles[f"{role}Container"] = container
+        # Selected segments may add a sub-tab layer and widget-local ink.
+        container_ink = .21 if role == "primary" else BUTTON_INK
+        roles[f"on{title}Container"] = readable(
+            canonical[hue], mode, (container,), ink=container_ink
+        )
+        if role != "error":
+            fixed_dim = readable(dark_anchors[hue], "dark", (DEEP_INK,))
+            fixed = lighter(fixed_dim, .10)
+            roles.update({
+                f"{role}Fixed": fixed, f"{role}FixedDim": fixed_dim,
+                f"on{title}Fixed": DEEP_INK,
+                f"on{title}FixedVariant": readable(light_anchors[hue], "light", (fixed, fixed_dim)),
+            })
 
-
-def fill_foreground(bg):
-    choices=('141617','1D2021','282828','FBF1C7','F9F5D7','FFFFFF','000000')
-    for c in choices:
-        if contrast(c,bg)>=5 and contrast(c,mix(bg,c,26/255))>=4.65:return c
-    return max(choices,key=lambda c:contrast(c,mix(bg,c,26/255)))
-
-
-def seed_color(family,accent):
-    # A single seed is used in both modes. Maximize worst-case contrast of
-    # the directly painted seed on cards, selected file rows and disk tracks.
-    bgs=[]
-    for level in levels(family):
-        for mode in ('dark','light'):
-            s=surfaces(family,level,mode);card=s['surfaceContainerLow']
-            bgs.extend([card,s['surface'],mix(card,containers(family,level,mode,'orange'),.55),mix(card,'7D7D7D',37/255)])
-    candidates=[mix(colors(family,'dark')[accent],colors(family,'light')[accent],i/200) for i in range(201)]
-    return max(candidates,key=lambda v:min(contrast(v,b) for b in bgs))
-
-
-def palette(family,level,accent,mode):
-    s=surfaces(family,level,mode)
-    c=colors(family,mode); d=mode=='dark'
-    opposite=colors(family,'light' if d else 'dark')
-    bg=s['surface']; fg=s['onSurface']
-    for role,hue in [('primary',accent),('secondary','orange'),('tertiary','purple'),('error','red')]:
-        anchor=c[hue]
-        # The app uses error as ordinary text (e.g. port-forward errors).
-        # A single corrected red per brightness is shared by all contrasts.
-        a=accent_text(family,mode,hue) if role in ('primary','error') else anchor
-        container=containers(family,level,mode,hue)
-        # Use the actual hue for container text when possible; otherwise make
-        # the minimum contrast correction toward the brightness foreground.
-        on_container=container_foreground(anchor,container,mode)
-        s[role]=a
-        cap=role[0].upper()+role[1:]
-        s['on'+cap]=fill_foreground(a) if role in ('primary','error') else fg_on(a)
-        s[role+'Container']=container
-        s['on'+cap+'Container']=on_container
-        if role!='error':
-            # Fixed roles stay identical in light and dark. Their bright tone
-            # derives from the canonical dark accent, not from the seed.
-            fixed=mix(colors(family,'dark')[hue],'F9F5D7',.62)
-            dim=mix(colors(family,'dark')[hue],'F9F5D7',.28)
-            s[role+'Fixed']=fixed
-            s[role+'FixedDim']=dim
-            s['on'+cap+'Fixed']='141617'
-            s['on'+cap+'FixedVariant']=accessible(colors(family,'light')[hue],[fixed,dim],5.0,'141617')
-    border_bgs=[bg,s['surfaceContainerLow'],s['surfaceContainer'],s['surfaceContainerHigh']]
-    s['outline']=accessible('928374',border_bgs,4.8,'FFFFFF' if d else '000000')
-    s['outlineVariant']=MATERIAL_BG[level,mode].split()[6] if family=='material' and d else mix(bg,s['outline'],.39)
-    s['shadow']='000000';s['scrim']='000000'
-    # Inverse roles contrast against the opposite neutral surface.
-    s['inverseSurface']=fg
-    s['onInverseSurface']=bg
-    s['inversePrimary']=accessible(opposite[accent],[fg],5.0,'141617' if d else 'FBF1C7')
-    s['surfaceTint']=0
-    return s
-
-
-def component_tables(family,accent):
-    # Shared structural styling. State-specific literal hues are only used
-    # where the ColorScheme has no corresponding semantic color role.
-    t={
-      'card':dict(backgroundColor='surfaceContainerLow',radius=12,borderColor='outlineVariant',borderWidth=1,elevation=0,surfaceTintColor=0),
-      'tile':dict(selectedTileColor='primaryContainer',selectedColor='onPrimaryContainer',iconColor='onSurfaceVariant',radius=8),
-      # Do not override shared Filled/Tonal/Elevated backgrounds, foregrounds,
-      # or state ink. Flutter retains its semantic pairs and state defaults.
-      'button':dict(radius=10,elevation=0,surfaceTintColor=0),
-      'textButton':dict(radius=8),
-      'textButton.focused':dict(borderColor='primary',borderWidth=2),
-      'outlinedButton':dict(radius=10,borderColor='outline',borderWidth=1),
-      'outlinedButton.focused':dict(borderColor='primary',borderWidth=2),
-      'iconButton':dict(radius=8),
-      'iconButton.focused':dict(borderColor='primary',borderWidth=2),
-      'input':dict(filled=True,fillColor='surfaceContainerLow',radius=8,borderColor='outline',borderWidth=1,focusedBorderColor='primary',errorBorderColor='error',disabledBorderColor='outlineVariant'),
-      'search':dict(backgroundColor='surfaceContainerLow',radius=10,borderColor='outline',borderWidth=1,textColor='onSurface',hintColor='onSurfaceVariant'),
-      'appBar':dict(backgroundColor='surface',foregroundColor='onSurface',titleColor='onSurface',elevation=0,surfaceTintColor=0),
-      'navigation':dict(backgroundColor='surfaceContainerLow',indicatorColor='primaryContainer',indicatorRadius=10,selectedIconColor='onPrimaryContainer',unselectedIconColor='onSurfaceVariant',unselectedLabelColor='onSurfaceVariant',elevation=0),
-      'segmented':dict(backgroundColor='surfaceContainer',selectedColor='primaryContainer',textColor='onSurfaceVariant',selectedTextColor='onPrimaryContainer',radius=8,borderColor='outline',borderWidth=1),
-      'sidebar':dict(backgroundColor='surfaceContainerLow',selectedColor='primaryContainer',textColor='onSurface',selectedTextColor='onPrimaryContainer',iconColor='onSurfaceVariant',radius=8),
-      'dialog':dict(backgroundColor='surfaceContainer',radius=16,borderColor='outlineVariant',borderWidth=1,elevation=0,surfaceTintColor=0),
-      'sheet':dict(backgroundColor='surfaceContainer',radius=16,elevation=0,surfaceTintColor=0,dragHandleColor='outline'),
-      'menu':dict(backgroundColor='surfaceContainerHigh',radius=8,borderColor='outlineVariant',borderWidth=1,elevation=0,surfaceTintColor=0,textColor='onSurface'),
-      'tooltip':dict(radius=6),
-      'toast':dict(backgroundColor='inverseSurface',textColor='onInverseSurface',radius=10,elevation=0),
-      # Native switch retains state-dependent colors, including disabled states.
-      'slider':dict(activeTrackColor='primary',inactiveTrackColor='primaryContainer',thumbColor='primary'),
-      'progress':dict(color='primary',trackColor='primaryContainer'),
-      'badge':dict(backgroundColor='tertiary',textColor='onTertiary'),
-      'chip':dict(backgroundColor='surfaceContainerLow',selectedColor='secondaryContainer',textColor='onSurface',radius=8,borderColor='outlineVariant',borderWidth=1),
-      'divider':dict(color='outlineVariant',thickness=1),
-      'scrollbar':dict(thumbColor='outline',trackColor='surfaceContainerLow',radius=4),
+    inverse_mode = "light" if mode == "dark" else "dark"
+    inverse = on_surface
+    roles.update(
+        inverseSurface=inverse,
+        onInverseSurface=page,
+        inversePrimary=readable(anchors(family, inverse_mode)[accent], inverse_mode, (inverse,)),
+        shadow="000000", scrim="000000", surfaceTint=0,
+    )
+    tooltip, tooltip_ink = fill_pair(semantic.colors["attention"], mode)
+    progress = readable(semantic.accent, mode, (selections[accent], page, low, high), minimum=GRAPHIC)
+    info = readable(semantic.colors["information"], mode, (page, low, raised),
+                    minimum=GRAPHIC, ink=BUTTON_INK)
+    error_border = readable(semantic.colors["failure"], mode, (page, low, raised), minimum=GRAPHIC)
+    return roles, {
+        "search": {"iconColor": argb(info)},
+        "input": {"errorBorderColor": argb(error_border)},
+        "sidebar": {"selectedColor": argb(sidebar[accent])},
+        "tooltip": {"backgroundColor": argb(tooltip), "textColor": argb(tooltip_ink)},
+        "slider": {"activeTrackColor": argb(progress), "thumbColor": argb(progress)},
+        "progress": {"color": argb(progress)},
     }
-    other='blue' if accent=='green' else 'green'
-    for mode in ('dark','light'):
-        c=colors(family,mode)
-        t[f'{mode}.textButton']=dict(foregroundColor=argb(accent_text(family,mode,'aqua')))
-        t[f'{mode}.textButton.disabled']=dict(foregroundColor=int('61'+surfaces(family,'medium',mode)['onSurface'],16))
-        t[f'{mode}.iconButton.disabled']=dict(foregroundColor=int('61'+surfaces(family,'medium',mode)['onSurface'],16))
-        # The complementary default does not replace the selected semantic pair.
-        t[f'{mode}.iconButton.selected']=dict(foregroundColor='onPrimaryContainer',backgroundColor='primaryContainer')
-        t[f'{mode}.iconButton.disabled']['backgroundColor']=0
-        chip_bgs=[]
-        for level in levels(family):
-            chip_bgs.extend((surfaces(family,level,mode)['surfaceContainerLow'],containers(family,level,mode,'orange')))
-        chip_ink='FFFFFF' if mode=='dark' else '000000'
-        chip_fg=choose_tone(surfaces(family,'medium',mode)['onSurface'],mode,lambda v:
-            all(contrast(v,mix(b,chip_ink,31/255))>=4.75 for b in chip_bgs))
-        t[f'{mode}.chip']=dict(textColor=argb(chip_fg))
-        # Preserve the exact canonical red as a non-text error border.
-        t[f'{mode}.input']=dict(errorBorderColor=argb(c['red']))
-        t[f'{mode}.iconButton']=dict(foregroundColor=argb(accent_text(family,mode,other)))
-        t[f'{mode}.search']=dict(iconColor=argb(accent_text(family,mode,other)))
-        t[f'{mode}.appBar']=dict(iconColor=argb(accent_text(family,mode,accent)))
-        t[f'{mode}.navigation']=dict(selectedLabelColor=argb(accent_text(family,mode,accent)))
-        t[f'{mode}.sidebar']=dict(selectedIconColor='onPrimaryContainer')
-        # Canonical accent is safe for these non-text consumers. Keep its
-        # identity visible rather than forcing all controls to the text tone.
-        t[f'{mode}.progress']=dict(color=argb(c[accent]))
-        t[f'{mode}.slider']=dict(activeTrackColor=argb(c[accent]),thumbColor=argb(c[accent]))
-        t[f'{mode}.tooltip']=dict(backgroundColor=argb(c['yellow']),textColor=argb(fg_on(c['yellow'])))
-    return t
 
 
-def argb(h):
-    return int('FF'+h,16) if isinstance(h,str) else h
+def component_tables(family, level, accent):
+    border = {"borderColor": "outlineVariant", "borderWidth": 1}
+    field_border = {"borderColor": "outline", "borderWidth": 1}
+    focus = {"borderColor": "primary", "borderWidth": 2}
+    components = {
+        "card": dict(border, backgroundColor="surfaceContainerLow", radius=12),
+        "tile": {"selectedTileColor": "primaryContainer", "selectedColor": "onPrimaryContainer", "radius": 8},
+        "button": {"radius": 10, "elevation": 0, "surfaceTintColor": 0},
+        "outlinedButton": {"radius": 10, "focused": focus},
+        "textButton": {"radius": 8, "focused": focus},
+        "iconButton": {"radius": 8, "focused": focus},
+        "input": dict(field_border, filled=True, fillColor="surfaceContainerLow", radius=8,
+                      focusedBorderColor="primary", disabledBorderColor="outlineVariant"),
+        "search": dict(field_border, backgroundColor="surfaceContainerLow", radius=10,
+                       textColor="onSurface", hintColor="onSurfaceVariant"),
+        "appBar": {"backgroundColor": "surface", "iconColor": "onSurfaceVariant"},
+        "navigation": {
+            "backgroundColor": "surfaceContainerLow", "indicatorColor": "primaryContainer",
+            "indicatorRadius": 10, "selectedIconColor": "onPrimaryContainer",
+            "selectedLabelColor": "primary", "unselectedIconColor": "onSurfaceVariant",
+            "unselectedLabelColor": "onSurfaceVariant", "elevation": 0,
+        },
+        "segmented": {"radius": 8},
+        "sidebar": {"backgroundColor": "surface", "selectedTextColor": "onPrimaryContainer",
+                    "selectedIconColor": "onPrimaryContainer", "radius": 8},
+        "dialog": dict(border, backgroundColor="surfaceContainer", radius=16),
+        "sheet": {"backgroundColor": "surfaceContainer", "radius": 16, "dragHandleColor": "outline"},
+        "menu": dict(border, backgroundColor="surfaceContainerHigh", textColor="onSurface", radius=8),
+        "tooltip": {"radius": 6},
+        "toast": {"backgroundColor": "inverseSurface", "textColor": "onInverseSurface", "radius": 10},
+        "slider": {"inactiveTrackColor": "primaryContainer"},
+        "progress": {"trackColor": "primaryContainer"},
+        "badge": {"backgroundColor": "tertiary", "textColor": "onTertiary"},
+        "chip": {"backgroundColor": "surfaceContainerLow", "selectedColor": "secondaryContainer", "radius": 8},
+        "divider": {"color": "outlineVariant", "thickness": 1},
+        "scrollbar": {"thumbColor": "outline", "trackColor": "surfaceContainerLow", "radius": 4},
+    }
+    palettes = {}
+    for mode in MODES:
+        palettes[mode], components[mode] = component_palette(family, level, mode, accent)
+    return {mode: {role: argb(color) for role, color in palette.items()}
+            for mode, palette in palettes.items()}, components
+
+
+@cache
+def seed_color(family, accent):
+    # ServerBox also draws the shared light/dark seed directly on file rows.
+    # Pick the best compromise for those consumers without overriding a role.
+    backgrounds = []
+    for mode in MODES:
+        for level in LEVELS if family == "material" else ("medium",):
+            roles, _, _ = surfaces(family, level, mode)
+            low = roles["surfaceContainerLow"]
+            warning = semantic_palette(family, level, mode, accent).fills["orange"]
+            backgrounds.extend((roles["surface"], low, blend(low, warning, .55),
+                                blend(low, "7D7D7D", 37 / 255)))
+    dark, light = (anchors(family, mode)[accent] for mode in MODES)
+    return max((blend(dark, light, step / 200) for step in range(201)),
+               key=lambda color: min(contrast(color, bg) for bg in backgrounds))
+
+
+# xterm TerminalTheme. ANSI indexed colors also paint SGR backgrounds.
+ANSI = {
+    "red": "failure", "green": "success", "yellow": "attention", "blue": "information",
+    "magenta": "specialized", "cyan": "network",
+}
+def terminal_palette(family, level, mode):
+    dark = mode == "dark"
+    semantic = semantic_palette(family, level, mode, "green")
+    background = BG0[mode][level]
+    _, foreground, _ = surfaces(family, level, mode)
+    selection = semantic.colors["information"]
+    selection_alpha = 44 / 255
+    selected_bg = blend(background, selection, selection_alpha)
+
+    def text_on_terminal(color):
+        # This xterm paints selection on top of both cells and glyphs.
+        return (
+            contrast(color, background) >= TEXT
+            and contrast(blend(color, selection, selection_alpha), selected_bg) >= TEXT
+        )
+
+    ansi = {"black": DEEP_INK}
+    bright = {"brightBlack": fit_tone(GRAY, mode, text_on_terminal)}
+    for slot, use in ANSI.items():
+        anchor = semantic.colors[use]
+        alt = ORIGINAL_NEUTRAL[SEMANTIC_HUES[use]] if family == "original" else anchor
+        normal_anchor, bright_anchor = (alt, anchor) if dark else (anchor, alt)
+        normal = fit_tone(normal_anchor, mode, text_on_terminal)
+        ansi[slot] = normal
+        bright["bright" + slot.title()] = fit_tone(bright_anchor, mode, lambda color:
+                                                  text_on_terminal(color)
+                                                  and contrast(color, normal) >= 1.14
+                                                  and (luminance(color) > luminance(normal)) == dark)
+
+    ansi["white"] = LIGHT_NEUTRALS[0]
+    bright["brightWhite"] = PALE_INK
+    foreground = fit_tone(foreground, mode, text_on_terminal)
+    key_backgrounds = (background, blend(background, foreground, BUTTON_INK))
+    accent = readable(semantic.colors["information"], mode, key_backgrounds)
+    hits = [fill_pair(anchors(family, "dark")[hue], "dark")[0] for hue in ("yellow", "orange")]
+    return {
+        "foreground": argb(foreground), "background": argb(background),
+        # The xterm block cursor draws on top of glyphs, just as selection does.
+        "cursor": argb(foreground, 192), "selection": argb(selection, 44),
+        "selectionCursor": argb(accent),
+        "searchHitForeground": argb(DEEP_INK),
+        "searchHitBackground": argb(hits[0]), "searchHitBackgroundCurrent": argb(hits[1]),
+        **{name: argb(color) for name, color in (ansi | bright).items()},
+    }
+
+
+def argb(color, alpha=255):
+    return (alpha << 24) | int(color, 16) if isinstance(color, str) else color
 
 
 def literal(value):
-    if isinstance(value,bool):return str(value).lower()
-    if isinstance(value,str):return json.dumps(value,ensure_ascii=False)
-    if isinstance(value,int) and (value>255 or value==0):
-        # Zero is valid for both numeric fields and transparent colors.
-        return f'0x{value:08X}' if value>255 else '0'
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, (str, list)):
+        return json.dumps(value, ensure_ascii=False)
     return str(value)
 
 
-def table(path,fields):
-    return '\n['+path+']\n'+''.join(f'{k} = {"0x00000000" if type(v) is int and v == 0 and k.endswith("Color") else literal(v)}\n' for k,v in fields.items())
+def toml_tables(mapping, prefix=""):
+    """Write leaf values, then nested tables in insertion order."""
+    leaves = {key: value for key, value in mapping.items() if not isinstance(value, dict)}
+    if prefix and (leaves or not mapping):
+        yield f"\n[{prefix}]\n"
+    for key, value in leaves.items():
+        is_color = ".palette." in f".{prefix}" or key == "seed" or key.endswith("Color") or (
+            prefix.startswith(("components", "variants")) and key == "color"
+        )
+        encoded = f"0x{value:08X}" if type(value) is int and is_color else literal(value)
+        yield f"{key} = {encoded}\n"
+    for key, value in mapping.items():
+        if isinstance(value, dict):
+            yield from toml_tables(value, f"{prefix}.{key}" if prefix else key)
 
 
-def pal_table(path,p):
-    return '\n['+path+']\n'+''.join(f'{k} = 0x{argb(v):08X}\n' for k,v in p.items())
+def differences(base, variant):
+    delta = {}
+    for key, value in variant.items():
+        inherited = base.get(key)
+        if isinstance(value, dict):
+            if changed := differences(inherited or {}, value):
+                delta[key] = changed
+        elif value != inherited:
+            delta[key] = value
+    return delta
 
 
-def build(family):
-    material=family=='material'
-    tid='milesclem.gruvbox'+('-material' if material else '')
-    name='Gruvbox Material' if material else 'Gruvbox'
-    variants=[(f'{level}_{accent}',f'{level.title()} {accent.title()}',level,accent) for level in ('medium','hard','soft') for accent in ('green','blue')] if material else [(accent,accent.title(),'medium',accent) for accent in ('green','blue')]
-    base={mode:palette(family,'medium','green',mode) for mode in ('dark','light')}
-    components=component_tables(family,'green')
-    out=f'#:schema {SCHEMA_URL}\n'+''.join('# '+l+'\n' if l else '#\n' for l in NOTICES[family].splitlines())
-    out+='\n# Copyright (c) 2026 milesclem contributors (ServerBox adaptation).\n# The adaptation is licensed under the MIT permission and warranty terms above.\n# Regenerate with tools/generate.py.\n'
-    out+=f'id = "{tid}"\nname = "{name}"\nmodes = ["light", "dark"]\n'
-    out+=table('schema',dict(min=3,max=4))
-    out+=table('colors',dict(mode=0,seed=argb(seed_color(family,'green')),systemColor=False))
-    for mode,p in base.items():out+=pal_table('colors.palette.'+mode,p)
-    for path,fields in components.items():out+=table('components.'+path,fields)
-    for key,label,level,accent in variants:
-        prefix='variants.'+key
-        out+=table(prefix,dict(name=label))
-        if accent!='green':out+=table(prefix+'.colors',dict(seed=argb(seed_color(family,accent))))
-        for mode in ('dark','light'):
-            p=palette(family,level,accent,mode)
-            changed={k:v for k,v in p.items() if v!=base[mode][k]}
-            if changed:out+=pal_table(prefix+'.colors.palette.'+mode,changed)
-        for path,fields in component_tables(family,accent).items():
-            changed={k:v for k,v in fields.items() if v!=components[path].get(k)}
-            if changed:out+=table(prefix+'.components.'+path,changed)
-    folder=ROOT/'themes'/tid;folder.mkdir(parents=True,exist_ok=True)
-    # Same-directory temporary file permits an atomic replacement.
-    with tempfile.NamedTemporaryFile(mode='w',encoding='utf-8',newline='\n',dir=folder,prefix='.manifest-',delete=False) as f:
-        temp=Path(f.name);f.write(out)
-    try:
-        os.chmod(temp,0o644);os.replace(temp,folder/'manifest.toml')
-    finally:
-        temp.unlink(missing_ok=True)
+def appearance(family, level, accent):
+    colors, components = component_tables(family, level, accent)
+    return {
+        "colors": {"seed": argb(seed_color(family, accent)), "palette": colors},
+        "components": components,
+    }
 
 
-if __name__=='__main__':
-    for family in ('original','material'):build(family)
+def manifest(family):
+    name = FAMILIES[family]
+    theme_id = "milesclem." + name.lower().replace(" ", "-")
+    base = appearance(family, "medium", "green")
+    variants = {}
+    for level in LEVELS if family == "material" else ("medium",):
+        for accent in ACCENTS:
+            key = f"{level}_{accent}" if family == "material" else accent
+            label = key.replace("_", " ").title()
+            variants[key] = {"name": label, **differences(base, appearance(family, level, accent))}
+    document = {
+        "id": theme_id, "name": name, "modes": ["light", "dark"],
+        "schema": {"min": 3, "max": 4},
+        "colors": {"mode": 0, "systemColor": False, **base["colors"]},
+        "components": base["components"],
+        "variants": variants,
+    }
+    notices = (ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
+    heading = "Gruvbox Original" if family == "original" else name
+    notice = notices.split(f"\n## {heading}\n", 1)[1].split("\n## ", 1)[0].strip()
+    license_lines = [line for line in notice.splitlines() if not line.startswith("Source: ")]
+    header = f"#:schema {SCHEMA_URL}\n" + "\n".join(f"# {line}" if line else "#" for line in license_lines).strip()
+    header += "\n\n# Copyright (c) 2026 milesclem contributors (ServerBox adaptation).\n"
+    header += "# The adaptation is licensed under the MIT permission and warranty terms above.\n"
+    header += "# Regenerate with tools/generate.py.\n"
+    return ROOT / "themes" / theme_id / "manifest.toml", header + "".join(toml_tables(document))
+
+
+def terminal_specification():
+    def hex_argb(palette):
+        return {name: f"0x{value:08X}" for name, value in palette.items()}
+
+    document = {
+        "generatedBy": "tools/generate.py",
+        "profiles": {
+            family: {
+                level: {mode: hex_argb(terminal_palette(family, level, mode)) for mode in MODES}
+                for level in LEVELS
+            }
+            for family in FAMILIES
+        },
+        "resourceAnchors": {
+            family: {
+                mode: {name: f"#{value}" for name, value in
+                       semantic_palette(family, "medium", mode, "green").resources.items()}
+                for mode in MODES
+            }
+            for family in FAMILIES
+        },
+    }
+    return ROOT / "docs" / "terminal-palettes.json", json.dumps(document, indent=2) + "\n"
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true", help="check committed generated bytes")
+    args = parser.parse_args()
+    files = [*(manifest(family) for family in FAMILIES), terminal_specification()]
+    for path, content in files:
+        expected = content.encode("utf-8")
+        if path.exists() and path.read_bytes() == expected:
+            continue
+        if args.check:
+            parser.exit(1, f"{path.relative_to(ROOT)} is stale. Run tools/generate.py.\n")
+        with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as temporary:
+            temporary.write(expected)
+        staged = Path(temporary.name)
+        try:
+            staged.chmod(0o644)
+            staged.replace(path)
+        finally:
+            staged.unlink(missing_ok=True)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

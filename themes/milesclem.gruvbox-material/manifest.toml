@@ -1,4 +1,5 @@
 #:schema https://raw.githubusercontent.com/lollipopkit/flutter_server_box/fa7941a0b3d4dda154cbf85b007dc6348812e679/docs/schemas/fsbt-manifest.schema.json
+#
 # Palette adapted from sainnhe/gruvbox-material (https://github.com/sainnhe/gruvbox-material).
 # MIT License
 #
@@ -35,117 +36,114 @@ max = 4
 
 [colors]
 mode = 0
-seed = 0xFF7B873B
 systemColor = false
+seed = 0xFF7B873B
 
 [colors.palette.dark]
 surface = 0xFF282828
-onSurface = 0xFFD4BE98
 surfaceDim = 0xFF1B1B1B
-surfaceBright = 0xFF514A45
+surfaceBright = 0xFF5A524C
 surfaceContainerLowest = 0xFF1B1B1B
 surfaceContainerLow = 0xFF32302F
 surfaceContainer = 0xFF3A3735
 surfaceContainerHigh = 0xFF45403D
-surfaceContainerHighest = 0xFF514A45
+surfaceContainerHighest = 0xFF5A524C
+onSurface = 0xFFF1EADD
 onSurfaceVariant = 0xFFDDC7A1
-primary = 0xFFDDE3C3
+outline = 0xFFCEC7C0
+outlineVariant = 0xFF59524B
+primary = 0xFFAEBB6F
 onPrimary = 0xFF141617
 primaryContainer = 0xFF3B4439
-onPrimaryContainer = 0xFFBEC88A
-primaryFixed = 0xFFDBDDAC
-primaryFixedDim = 0xFFBFC885
+onPrimaryContainer = 0xFFDEE3C3
+primaryFixed = 0xFFBCC688
+primaryFixedDim = 0xFFA9B665
 onPrimaryFixed = 0xFF141617
-onPrimaryFixedVariant = 0xFF454D24
+onPrimaryFixedVariant = 0xFF3E451A
 secondary = 0xFFE78A4E
 onSecondary = 0xFF141617
-secondaryContainer = 0xFF4E3C30
-onSecondaryContainer = 0xFFEFB38C
-secondaryFixed = 0xFFF2CCA3
-secondaryFixedDim = 0xFFECA874
+secondaryContainer = 0xFF48392E
+onSecondaryContainer = 0xFFEDA87B
+secondaryFixed = 0xFFEDA87B
+secondaryFixedDim = 0xFFE78A4E
 onSecondaryFixed = 0xFF141617
-onSecondaryFixedVariant = 0xFF633611
+onSecondaryFixedVariant = 0xFF5A2B05
 tertiary = 0xFFD3869B
 onTertiary = 0xFF141617
 tertiaryContainer = 0xFF443840
-onTertiaryContainer = 0xFFE1ACBA
-tertiaryFixed = 0xFFEBCBC0
-tertiaryFixedDim = 0xFFDEA5AC
+onTertiaryContainer = 0xFFDFA8B7
+tertiaryFixed = 0xFFE1ABBA
+tertiaryFixedDim = 0xFFD3869B
 onTertiaryFixed = 0xFF141617
-onTertiaryFixedVariant = 0xFF503848
-error = 0xFFFAD8D6
+onTertiaryFixedVariant = 0xFF452C3C
+error = 0xFFF19C97
 onError = 0xFF141617
 errorContainer = 0xFF4C3432
-onErrorContainer = 0xFFF2A29E
-outline = 0xFFBAB1A7
-outlineVariant = 0xFF5A524C
+onErrorContainer = 0xFFF2A09C
+inverseSurface = 0xFFF1EADD
+onInverseSurface = 0xFF282828
+inversePrimary = 0xFF646F2B
 shadow = 0xFF000000
 scrim = 0xFF000000
-inverseSurface = 0xFFD4BE98
-onInverseSurface = 0xFF282828
-inversePrimary = 0xFF444C24
 surfaceTint = 0x00000000
 
 [colors.palette.light]
 surface = 0xFFFBF1C7
-onSurface = 0xFF654735
-surfaceDim = 0xFFDDCCAB
+surfaceDim = 0xFFE5D5AD
 surfaceBright = 0xFFFBF1C7
 surfaceContainerLowest = 0xFFFBF1C7
 surfaceContainerLow = 0xFFF4E8BE
 surfaceContainer = 0xFFF2E5BC
 surfaceContainerHigh = 0xFFEEE0B7
 surfaceContainerHighest = 0xFFE5D5AD
+onSurface = 0xFF533A2C
 onSurfaceVariant = 0xFF4F3829
-primary = 0xFF454D1D
-onPrimary = 0xFFFBF1C7
+outline = 0xFF655A4F
+outlineVariant = 0xFFCFC3A4
+primary = 0xFF545D24
+onPrimary = 0xFFF9F5D7
 primaryContainer = 0xFFDEE2B6
-onPrimaryContainer = 0xFF535C23
-primaryFixed = 0xFFDBDDAC
-primaryFixedDim = 0xFFBFC885
+onPrimaryContainer = 0xFF4A5220
+primaryFixed = 0xFFBCC688
+primaryFixedDim = 0xFFA9B665
 onPrimaryFixed = 0xFF141617
-onPrimaryFixedVariant = 0xFF454D24
-secondary = 0xFFC35E0A
-onSecondary = 0xFF000000
-secondaryContainer = 0xFFF1D8A7
-onSecondaryContainer = 0xFF884207
-secondaryFixed = 0xFFF2CCA3
-secondaryFixedDim = 0xFFECA874
+onPrimaryFixedVariant = 0xFF3E451A
+secondary = 0xFFCB620A
+onSecondary = 0xFF141617
+secondaryContainer = 0xFFF4DFB0
+onSecondaryContainer = 0xFF904507
+secondaryFixed = 0xFFEDA87B
+secondaryFixedDim = 0xFFE78A4E
 onSecondaryFixed = 0xFF141617
-onSecondaryFixedVariant = 0xFF633611
+onSecondaryFixedVariant = 0xFF5A2B05
 tertiary = 0xFF945E80
-onTertiary = 0xFFFFFFFF
+onTertiary = 0xFFF9F5D7
 tertiaryContainer = 0xFFEFDEC3
-onTertiaryContainer = 0xFF764B66
-tertiaryFixed = 0xFFEBCBC0
-tertiaryFixedDim = 0xFFDEA5AC
+onTertiaryContainer = 0xFF784C68
+tertiaryFixed = 0xFFE1ABBA
+tertiaryFixedDim = 0xFFD3869B
 onTertiaryFixed = 0xFF141617
-onTertiaryFixedVariant = 0xFF503848
-error = 0xFF7A2F2F
-onError = 0xFFFBF1C7
+onTertiaryFixedVariant = 0xFF452C3C
+error = 0xFF983434
+onError = 0xFFF9F5D7
 errorContainer = 0xFFF1D9B5
-onErrorContainer = 0xFF933838
-outline = 0xFF685D52
-outlineVariant = 0xFFC2B799
+onErrorContainer = 0xFF993434
+inverseSurface = 0xFF533A2C
+onInverseSurface = 0xFFFBF1C7
+inversePrimary = 0xFFA9B665
 shadow = 0xFF000000
 scrim = 0xFF000000
-inverseSurface = 0xFF654735
-onInverseSurface = 0xFFFBF1C7
-inversePrimary = 0xFFC9CD8B
 surfaceTint = 0x00000000
 
 [components.card]
-backgroundColor = "surfaceContainerLow"
-radius = 12
 borderColor = "outlineVariant"
 borderWidth = 1
-elevation = 0
-surfaceTintColor = 0x00000000
+backgroundColor = "surfaceContainerLow"
+radius = 12
 
 [components.tile]
 selectedTileColor = "primaryContainer"
 selectedColor = "onPrimaryContainer"
-iconColor = "onSurfaceVariant"
 radius = 8
 
 [components.button]
@@ -153,19 +151,17 @@ radius = 10
 elevation = 0
 surfaceTintColor = 0x00000000
 
+[components.outlinedButton]
+radius = 10
+
+[components.outlinedButton.focused]
+borderColor = "primary"
+borderWidth = 2
+
 [components.textButton]
 radius = 8
 
 [components.textButton.focused]
-borderColor = "primary"
-borderWidth = 2
-
-[components.outlinedButton]
-radius = 10
-borderColor = "outline"
-borderWidth = 1
-
-[components.outlinedButton.focused]
 borderColor = "primary"
 borderWidth = 2
 
@@ -177,79 +173,62 @@ borderColor = "primary"
 borderWidth = 2
 
 [components.input]
+borderColor = "outline"
+borderWidth = 1
 filled = true
 fillColor = "surfaceContainerLow"
 radius = 8
-borderColor = "outline"
-borderWidth = 1
 focusedBorderColor = "primary"
-errorBorderColor = "error"
 disabledBorderColor = "outlineVariant"
 
 [components.search]
-backgroundColor = "surfaceContainerLow"
-radius = 10
 borderColor = "outline"
 borderWidth = 1
+backgroundColor = "surfaceContainerLow"
+radius = 10
 textColor = "onSurface"
 hintColor = "onSurfaceVariant"
 
 [components.appBar]
 backgroundColor = "surface"
-foregroundColor = "onSurface"
-titleColor = "onSurface"
-elevation = 0
-surfaceTintColor = 0x00000000
+iconColor = "onSurfaceVariant"
 
 [components.navigation]
 backgroundColor = "surfaceContainerLow"
 indicatorColor = "primaryContainer"
 indicatorRadius = 10
 selectedIconColor = "onPrimaryContainer"
+selectedLabelColor = "primary"
 unselectedIconColor = "onSurfaceVariant"
 unselectedLabelColor = "onSurfaceVariant"
 elevation = 0
 
 [components.segmented]
-backgroundColor = "surfaceContainer"
-selectedColor = "primaryContainer"
-textColor = "onSurfaceVariant"
-selectedTextColor = "onPrimaryContainer"
 radius = 8
-borderColor = "outline"
-borderWidth = 1
 
 [components.sidebar]
-backgroundColor = "surfaceContainerLow"
-selectedColor = "primaryContainer"
-textColor = "onSurface"
+backgroundColor = "surface"
 selectedTextColor = "onPrimaryContainer"
-iconColor = "onSurfaceVariant"
+selectedIconColor = "onPrimaryContainer"
 radius = 8
 
 [components.dialog]
-backgroundColor = "surfaceContainer"
-radius = 16
 borderColor = "outlineVariant"
 borderWidth = 1
-elevation = 0
-surfaceTintColor = 0x00000000
+backgroundColor = "surfaceContainer"
+radius = 16
 
 [components.sheet]
 backgroundColor = "surfaceContainer"
 radius = 16
-elevation = 0
-surfaceTintColor = 0x00000000
 dragHandleColor = "outline"
 
 [components.menu]
-backgroundColor = "surfaceContainerHigh"
-radius = 8
 borderColor = "outlineVariant"
 borderWidth = 1
-elevation = 0
-surfaceTintColor = 0x00000000
+backgroundColor = "surfaceContainerHigh"
 textColor = "onSurface"
+radius = 8
 
 [components.tooltip]
 radius = 6
@@ -258,15 +237,11 @@ radius = 6
 backgroundColor = "inverseSurface"
 textColor = "onInverseSurface"
 radius = 10
-elevation = 0
 
 [components.slider]
-activeTrackColor = "primary"
 inactiveTrackColor = "primaryContainer"
-thumbColor = "primary"
 
 [components.progress]
-color = "primary"
 trackColor = "primaryContainer"
 
 [components.badge]
@@ -276,10 +251,7 @@ textColor = "onTertiary"
 [components.chip]
 backgroundColor = "surfaceContainerLow"
 selectedColor = "secondaryContainer"
-textColor = "onSurface"
 radius = 8
-borderColor = "outlineVariant"
-borderWidth = 1
 
 [components.divider]
 color = "outlineVariant"
@@ -290,97 +262,45 @@ thumbColor = "outline"
 trackColor = "surfaceContainerLow"
 radius = 4
 
-[components.dark.textButton]
-foregroundColor = 0xFFBCD4B8
-
-[components.dark.textButton.disabled]
-foregroundColor = 0x61D4BE98
-
-[components.dark.iconButton.disabled]
-foregroundColor = 0x61D4BE98
-backgroundColor = 0x00000000
-
-[components.dark.iconButton.selected]
-foregroundColor = "onPrimaryContainer"
-backgroundColor = "primaryContainer"
-
-[components.dark.chip]
-textColor = 0xFFE6D9C2
+[components.dark.search]
+iconColor = 0xFF7DAEA3
 
 [components.dark.input]
 errorBorderColor = 0xFFEA6962
 
-[components.dark.iconButton]
-foregroundColor = 0xFFD2E3DF
-
-[components.dark.search]
-iconColor = 0xFFD2E3DF
-
-[components.dark.appBar]
-iconColor = 0xFFDDE3C3
-
-[components.dark.navigation]
-selectedLabelColor = 0xFFDDE3C3
-
 [components.dark.sidebar]
-selectedIconColor = "onPrimaryContainer"
-
-[components.dark.progress]
-color = 0xFFA9B665
-
-[components.dark.slider]
-activeTrackColor = 0xFFA9B665
-thumbColor = 0xFFA9B665
+selectedColor = 0xFF2D322C
 
 [components.dark.tooltip]
 backgroundColor = 0xFFD8A657
 textColor = 0xFF141617
 
-[components.light.textButton]
-foregroundColor = 0xFF345440
+[components.dark.slider]
+activeTrackColor = 0xFFA9B665
+thumbColor = 0xFFA9B665
 
-[components.light.textButton.disabled]
-foregroundColor = 0x61654735
+[components.dark.progress]
+color = 0xFFA9B665
 
-[components.light.iconButton.disabled]
-foregroundColor = 0x61654735
-backgroundColor = 0x00000000
-
-[components.light.iconButton.selected]
-foregroundColor = "onPrimaryContainer"
-backgroundColor = "primaryContainer"
-
-[components.light.chip]
-textColor = 0xFF5B4030
+[components.light.search]
+iconColor = 0xFF45707A
 
 [components.light.input]
 errorBorderColor = 0xFFC14A4A
 
-[components.light.iconButton]
-foregroundColor = 0xFF304D54
-
-[components.light.search]
-iconColor = 0xFF304D54
-
-[components.light.appBar]
-iconColor = 0xFF454D1D
-
-[components.light.navigation]
-selectedLabelColor = 0xFF454D1D
-
 [components.light.sidebar]
-selectedIconColor = "onPrimaryContainer"
+selectedColor = 0xFFEBE9BE
 
-[components.light.progress]
-color = 0xFF6C782E
+[components.light.tooltip]
+backgroundColor = 0xFFB47109
+textColor = 0xFF141617
 
 [components.light.slider]
 activeTrackColor = 0xFF6C782E
 thumbColor = 0xFF6C782E
 
-[components.light.tooltip]
-backgroundColor = 0xFFB47109
-textColor = 0xFF000000
+[components.light.progress]
+color = 0xFF6C782E
 
 [variants.medium_green]
 name = "Medium Green"
@@ -392,60 +312,42 @@ name = "Medium Blue"
 seed = 0xFF5B898A
 
 [variants.medium_blue.colors.palette.dark]
-primary = 0xFFD2E3DF
+primary = 0xFF90BAB0
 primaryContainer = 0xFF374141
-onPrimaryContainer = 0xFFA5C7C0
-primaryFixed = 0xFFCADAC3
-primaryFixedDim = 0xFFA0C2B2
-onPrimaryFixedVariant = 0xFF2F484E
-inversePrimary = 0xFF324D53
+onPrimaryContainer = 0xFFCBDFDA
+primaryFixed = 0xFF9CC2B9
+primaryFixedDim = 0xFF7DAEA3
+onPrimaryFixedVariant = 0xFF263E44
+inversePrimary = 0xFF45707A
 
 [variants.medium_blue.colors.palette.light]
-primary = 0xFF304D54
+primary = 0xFF3A5D66
 primaryContainer = 0xFFDADEC0
-onPrimaryContainer = 0xFF385B63
-primaryFixed = 0xFFCADAC3
-primaryFixedDim = 0xFFA0C2B2
-onPrimaryFixedVariant = 0xFF2F484E
-inversePrimary = 0xFFB9CEB4
+onPrimaryContainer = 0xFF315057
+primaryFixed = 0xFF9CC2B9
+primaryFixedDim = 0xFF7DAEA3
+onPrimaryFixedVariant = 0xFF263E44
+inversePrimary = 0xFF88B5AB
 
-[variants.medium_blue.components.dark.iconButton]
-foregroundColor = 0xFFDDE3C3
-
-[variants.medium_blue.components.dark.search]
-iconColor = 0xFFDDE3C3
-
-[variants.medium_blue.components.dark.appBar]
-iconColor = 0xFFD2E3DF
-
-[variants.medium_blue.components.dark.navigation]
-selectedLabelColor = 0xFFD2E3DF
-
-[variants.medium_blue.components.dark.progress]
-color = 0xFF7DAEA3
+[variants.medium_blue.components.dark.sidebar]
+selectedColor = 0xFF2A3030
 
 [variants.medium_blue.components.dark.slider]
 activeTrackColor = 0xFF7DAEA3
 thumbColor = 0xFF7DAEA3
 
-[variants.medium_blue.components.light.iconButton]
-foregroundColor = 0xFF454D1D
+[variants.medium_blue.components.dark.progress]
+color = 0xFF7DAEA3
 
-[variants.medium_blue.components.light.search]
-iconColor = 0xFF454D1D
-
-[variants.medium_blue.components.light.appBar]
-iconColor = 0xFF304D54
-
-[variants.medium_blue.components.light.navigation]
-selectedLabelColor = 0xFF304D54
-
-[variants.medium_blue.components.light.progress]
-color = 0xFF45707A
+[variants.medium_blue.components.light.sidebar]
+selectedColor = 0xFFE9E7C3
 
 [variants.medium_blue.components.light.slider]
 activeTrackColor = 0xFF45707A
 thumbColor = 0xFF45707A
+
+[variants.medium_blue.components.light.progress]
+color = 0xFF45707A
 
 [variants.hard_green]
 name = "Hard Green"
@@ -459,38 +361,53 @@ surfaceContainerLow = 0xFF282828
 surfaceContainer = 0xFF32302F
 surfaceContainerHigh = 0xFF3C3836
 surfaceContainerHighest = 0xFF504945
+onSurface = 0xFFEAE0CD
+outline = 0xFFC1B9B0
+outlineVariant = 0xFF534E47
+primary = 0xFFA9B665
 primaryContainer = 0xFF333E34
-onPrimaryContainer = 0xFFB4BF79
-secondaryContainer = 0xFF45352A
-onSecondaryContainer = 0xFFECA475
+onPrimaryContainer = 0xFFD1D8AC
+secondaryContainer = 0xFF3F3229
+onSecondaryContainer = 0xFFEA9B67
 tertiaryContainer = 0xFF3C333B
-onTertiaryContainer = 0xFFDDA1B1
+onTertiaryContainer = 0xFFDC9EAF
+error = 0xFFEF8E89
 errorContainer = 0xFF442E2D
-onErrorContainer = 0xFFF09691
-outline = 0xFFB1A69B
-outlineVariant = 0xFF504945
+onErrorContainer = 0xFFF0928D
+inverseSurface = 0xFFEAE0CD
 onInverseSurface = 0xFF1D2021
+inversePrimary = 0xFF5D6828
 
 [variants.hard_green.colors.palette.light]
 surface = 0xFFF9F5D7
-surfaceDim = 0xFFEBDBB2
+surfaceDim = 0xFFEEE0B7
 surfaceBright = 0xFFF9F5D7
 surfaceContainerLowest = 0xFFF9F5D7
 surfaceContainerLow = 0xFFF5EDCA
 surfaceContainer = 0xFFF3EAC7
 surfaceContainerHigh = 0xFFF2E5BC
 surfaceContainerHighest = 0xFFEEE0B7
+onSurface = 0xFF563D2D
+outline = 0xFF6B6054
+outlineVariant = 0xFFCEC5AD
+primary = 0xFF555F24
 primaryContainer = 0xFFDDE5C2
-onPrimaryContainer = 0xFF545E24
-secondaryContainer = 0xFFF0DBB4
-onSecondaryContainer = 0xFF8A4307
+onPrimaryContainer = 0xFF4B5420
+secondaryContainer = 0xFFF3E3BE
+onSecondaryContainer = 0xFF934708
 tertiaryContainer = 0xFFEEE2D1
-onTertiaryContainer = 0xFF794D69
+onTertiaryContainer = 0xFF7B4E6A
+error = 0xFF9A3535
 errorContainer = 0xFFF0DDC3
-onErrorContainer = 0xFF953939
-outline = 0xFF6B6055
-outlineVariant = 0xFFC2BBA4
+onErrorContainer = 0xFF9D3636
+inverseSurface = 0xFF563D2D
 onInverseSurface = 0xFFF9F5D7
+
+[variants.hard_green.components.dark.sidebar]
+selectedColor = 0xFF252C27
+
+[variants.hard_green.components.light.sidebar]
+selectedColor = 0xFFEAECCB
 
 [variants.hard_blue]
 name = "Hard Blue"
@@ -507,86 +424,74 @@ surfaceContainerLow = 0xFF282828
 surfaceContainer = 0xFF32302F
 surfaceContainerHigh = 0xFF3C3836
 surfaceContainerHighest = 0xFF504945
-primary = 0xFFD2E3DF
+onSurface = 0xFFEAE0CD
+outline = 0xFFC1B9B0
+outlineVariant = 0xFF534E47
+primary = 0xFF83B2A7
 primaryContainer = 0xFF2E3B3B
-onPrimaryContainer = 0xFF94BDB4
-primaryFixed = 0xFFCADAC3
-primaryFixedDim = 0xFFA0C2B2
-onPrimaryFixedVariant = 0xFF2F484E
-secondaryContainer = 0xFF45352A
-onSecondaryContainer = 0xFFECA475
+onPrimaryContainer = 0xFFBAD4CE
+primaryFixed = 0xFF9CC2B9
+primaryFixedDim = 0xFF7DAEA3
+onPrimaryFixedVariant = 0xFF263E44
+secondaryContainer = 0xFF3F3229
+onSecondaryContainer = 0xFFEA9B67
 tertiaryContainer = 0xFF3C333B
-onTertiaryContainer = 0xFFDDA1B1
+onTertiaryContainer = 0xFFDC9EAF
+error = 0xFFEF8E89
 errorContainer = 0xFF442E2D
-onErrorContainer = 0xFFF09691
-outline = 0xFFB1A69B
-outlineVariant = 0xFF504945
+onErrorContainer = 0xFFF0928D
+inverseSurface = 0xFFEAE0CD
 onInverseSurface = 0xFF1D2021
-inversePrimary = 0xFF324D53
+inversePrimary = 0xFF416973
 
 [variants.hard_blue.colors.palette.light]
 surface = 0xFFF9F5D7
-surfaceDim = 0xFFEBDBB2
+surfaceDim = 0xFFEEE0B7
 surfaceBright = 0xFFF9F5D7
 surfaceContainerLowest = 0xFFF9F5D7
 surfaceContainerLow = 0xFFF5EDCA
 surfaceContainer = 0xFFF3EAC7
 surfaceContainerHigh = 0xFFF2E5BC
 surfaceContainerHighest = 0xFFEEE0B7
-primary = 0xFF304D54
+onSurface = 0xFF563D2D
+outline = 0xFF6B6054
+outlineVariant = 0xFFCEC5AD
+primary = 0xFF3A5F67
 primaryContainer = 0xFFD9E1CC
-onPrimaryContainer = 0xFF395D65
-primaryFixed = 0xFFCADAC3
-primaryFixedDim = 0xFFA0C2B2
-onPrimaryFixedVariant = 0xFF2F484E
-secondaryContainer = 0xFFF0DBB4
-onSecondaryContainer = 0xFF8A4307
+onPrimaryContainer = 0xFF335259
+primaryFixed = 0xFF9CC2B9
+primaryFixedDim = 0xFF7DAEA3
+onPrimaryFixedVariant = 0xFF263E44
+secondaryContainer = 0xFFF3E3BE
+onSecondaryContainer = 0xFF934708
 tertiaryContainer = 0xFFEEE2D1
-onTertiaryContainer = 0xFF794D69
+onTertiaryContainer = 0xFF7B4E6A
+error = 0xFF9A3535
 errorContainer = 0xFFF0DDC3
-onErrorContainer = 0xFF953939
-outline = 0xFF6B6055
-outlineVariant = 0xFFC2BBA4
+onErrorContainer = 0xFF9D3636
+inverseSurface = 0xFF563D2D
 onInverseSurface = 0xFFF9F5D7
-inversePrimary = 0xFFB9CEB4
+inversePrimary = 0xFF8DB8AE
 
-[variants.hard_blue.components.dark.iconButton]
-foregroundColor = 0xFFDDE3C3
-
-[variants.hard_blue.components.dark.search]
-iconColor = 0xFFDDE3C3
-
-[variants.hard_blue.components.dark.appBar]
-iconColor = 0xFFD2E3DF
-
-[variants.hard_blue.components.dark.navigation]
-selectedLabelColor = 0xFFD2E3DF
-
-[variants.hard_blue.components.dark.progress]
-color = 0xFF7DAEA3
+[variants.hard_blue.components.dark.sidebar]
+selectedColor = 0xFF222A2B
 
 [variants.hard_blue.components.dark.slider]
 activeTrackColor = 0xFF7DAEA3
 thumbColor = 0xFF7DAEA3
 
-[variants.hard_blue.components.light.iconButton]
-foregroundColor = 0xFF454D1D
+[variants.hard_blue.components.dark.progress]
+color = 0xFF7DAEA3
 
-[variants.hard_blue.components.light.search]
-iconColor = 0xFF454D1D
-
-[variants.hard_blue.components.light.appBar]
-iconColor = 0xFF304D54
-
-[variants.hard_blue.components.light.navigation]
-selectedLabelColor = 0xFF304D54
-
-[variants.hard_blue.components.light.progress]
-color = 0xFF45707A
+[variants.hard_blue.components.light.sidebar]
+selectedColor = 0xFFE7EAD1
 
 [variants.hard_blue.components.light.slider]
 activeTrackColor = 0xFF45707A
 thumbColor = 0xFF45707A
+
+[variants.hard_blue.components.light.progress]
+color = 0xFF45707A
 
 [variants.soft_green]
 name = "Soft Green"
@@ -594,44 +499,60 @@ name = "Soft Green"
 [variants.soft_green.colors.palette.dark]
 surface = 0xFF32302F
 surfaceDim = 0xFF252423
-surfaceBright = 0xFF524B46
+surfaceBright = 0xFF665C54
 surfaceContainerLowest = 0xFF252423
 surfaceContainerLow = 0xFF3C3836
-surfaceContainer = 0xFF46413E
+surfaceContainer = 0xFF413C3A
 surfaceContainerHigh = 0xFF504945
-surfaceContainerHighest = 0xFF524B46
+surfaceContainerHighest = 0xFF665C54
+onSurface = 0xFFF9F5F0
+onSurfaceVariant = 0xFFE6D6BA
+outline = 0xFFDCD7D2
+outlineVariant = 0xFF5E564F
+primary = 0xFFBAC483
 primaryContainer = 0xFF424A3E
-onPrimaryContainer = 0xFFCAD2A0
-secondaryContainer = 0xFF564235
-onSecondaryContainer = 0xFFF2C1A1
+onPrimaryContainer = 0xFFEAEDD9
+secondaryContainer = 0xFF513F34
+onSecondaryContainer = 0xFFF0B690
 tertiaryContainer = 0xFF4B3E45
-onTertiaryContainer = 0xFFE5B8C4
+onTertiaryContainer = 0xFFE4B4C1
+error = 0xFFF3ABA7
 errorContainer = 0xFF543937
-onErrorContainer = 0xFFF4B0AC
-outline = 0xFFC6BFB7
-outlineVariant = 0xFF665C54
+onErrorContainer = 0xFFF3ACA8
+inverseSurface = 0xFFF9F5F0
 onInverseSurface = 0xFF32302F
+inversePrimary = 0xFF6A762D
 
 [variants.soft_green.colors.palette.light]
 surface = 0xFFF2E5BC
-surfaceDim = 0xFFD5C4A1
+surfaceDim = 0xFFDAC9A5
 surfaceBright = 0xFFF2E5BC
 surfaceContainerLowest = 0xFFF2E5BC
 surfaceContainerLow = 0xFFEDDEB5
 surfaceContainer = 0xFFEBDBB2
 surfaceContainerHigh = 0xFFE6D5AE
 surfaceContainerHighest = 0xFFDAC9A5
+onSurface = 0xFF4B3527
+outline = 0xFF5D5349
+outlineVariant = 0xFFCABC9E
+primary = 0xFF4D5621
 primaryContainer = 0xFFD7D9AE
-onPrimaryContainer = 0xFF4E5621
-secondaryContainer = 0xFFEACE9E
-onSecondaryContainer = 0xFF7F3D06
+onPrimaryContainer = 0xFF464D1E
+secondaryContainer = 0xFFECD5A7
+onSecondaryContainer = 0xFF874107
 tertiaryContainer = 0xFFE8D4BA
-onTertiaryContainer = 0xFF6F4660
+onTertiaryContainer = 0xFF704761
+error = 0xFF8D3030
 errorContainer = 0xFFEFD2B3
-onErrorContainer = 0xFF8B3535
-outline = 0xFF60564D
-outlineVariant = 0xFFB9AD91
+onErrorContainer = 0xFF933232
+inverseSurface = 0xFF4B3527
 onInverseSurface = 0xFFF2E5BC
+
+[variants.soft_green.components.dark.sidebar]
+selectedColor = 0xFF353932
+
+[variants.soft_green.components.light.sidebar]
+selectedColor = 0xFFE3DEB4
 
 [variants.soft_blue]
 name = "Soft Blue"
@@ -642,89 +563,78 @@ seed = 0xFF5B898A
 [variants.soft_blue.colors.palette.dark]
 surface = 0xFF32302F
 surfaceDim = 0xFF252423
-surfaceBright = 0xFF524B46
+surfaceBright = 0xFF665C54
 surfaceContainerLowest = 0xFF252423
 surfaceContainerLow = 0xFF3C3836
-surfaceContainer = 0xFF46413E
+surfaceContainer = 0xFF413C3A
 surfaceContainerHigh = 0xFF504945
-surfaceContainerHighest = 0xFF524B46
-primary = 0xFFD2E3DF
+surfaceContainerHighest = 0xFF665C54
+onSurface = 0xFFF9F5F0
+onSurfaceVariant = 0xFFE6D6BA
+outline = 0xFFDCD7D2
+outlineVariant = 0xFF5E564F
+primary = 0xFFA1C4BC
 primaryContainer = 0xFF404946
-onPrimaryContainer = 0xFFB6D2CB
-primaryFixed = 0xFFCADAC3
-primaryFixedDim = 0xFFA0C2B2
-onPrimaryFixedVariant = 0xFF2F484E
-secondaryContainer = 0xFF564235
-onSecondaryContainer = 0xFFF2C1A1
+onPrimaryContainer = 0xFFE2EDEA
+primaryFixed = 0xFF9CC2B9
+primaryFixedDim = 0xFF7DAEA3
+onPrimaryFixedVariant = 0xFF263E44
+secondaryContainer = 0xFF513F34
+onSecondaryContainer = 0xFFF0B690
 tertiaryContainer = 0xFF4B3E45
-onTertiaryContainer = 0xFFE5B8C4
+onTertiaryContainer = 0xFFE4B4C1
+error = 0xFFF3ABA7
 errorContainer = 0xFF543937
-onErrorContainer = 0xFFF4B0AC
-outline = 0xFFC6BFB7
-outlineVariant = 0xFF665C54
+onErrorContainer = 0xFFF3ACA8
+inverseSurface = 0xFFF9F5F0
 onInverseSurface = 0xFF32302F
-inversePrimary = 0xFF324D53
+inversePrimary = 0xFF45707A
 
 [variants.soft_blue.colors.palette.light]
 surface = 0xFFF2E5BC
-surfaceDim = 0xFFD5C4A1
+surfaceDim = 0xFFDAC9A5
 surfaceBright = 0xFFF2E5BC
 surfaceContainerLowest = 0xFFF2E5BC
 surfaceContainerLow = 0xFFEDDEB5
 surfaceContainer = 0xFFEBDBB2
 surfaceContainerHigh = 0xFFE6D5AE
 surfaceContainerHighest = 0xFFDAC9A5
-primary = 0xFF304D54
+onSurface = 0xFF4B3527
+outline = 0xFF5D5349
+outlineVariant = 0xFFCABC9E
+primary = 0xFF35565E
 primaryContainer = 0xFFD3D5B8
-onPrimaryContainer = 0xFF34555D
-primaryFixed = 0xFFCADAC3
-primaryFixedDim = 0xFFA0C2B2
-onPrimaryFixedVariant = 0xFF2F484E
-secondaryContainer = 0xFFEACE9E
-onSecondaryContainer = 0xFF7F3D06
+onPrimaryContainer = 0xFF2E4B52
+primaryFixed = 0xFF9CC2B9
+primaryFixedDim = 0xFF7DAEA3
+onPrimaryFixedVariant = 0xFF263E44
+secondaryContainer = 0xFFECD5A7
+onSecondaryContainer = 0xFF874107
 tertiaryContainer = 0xFFE8D4BA
-onTertiaryContainer = 0xFF6F4660
+onTertiaryContainer = 0xFF704761
+error = 0xFF8D3030
 errorContainer = 0xFFEFD2B3
-onErrorContainer = 0xFF8B3535
-outline = 0xFF60564D
-outlineVariant = 0xFFB9AD91
+onErrorContainer = 0xFF933232
+inverseSurface = 0xFF4B3527
 onInverseSurface = 0xFFF2E5BC
-inversePrimary = 0xFFB9CEB4
+inversePrimary = 0xFF7DAEA3
 
-[variants.soft_blue.components.dark.iconButton]
-foregroundColor = 0xFFDDE3C3
-
-[variants.soft_blue.components.dark.search]
-iconColor = 0xFFDDE3C3
-
-[variants.soft_blue.components.dark.appBar]
-iconColor = 0xFFD2E3DF
-
-[variants.soft_blue.components.dark.navigation]
-selectedLabelColor = 0xFFD2E3DF
-
-[variants.soft_blue.components.dark.progress]
-color = 0xFF7DAEA3
+[variants.soft_blue.components.dark.sidebar]
+selectedColor = 0xFF343836
 
 [variants.soft_blue.components.dark.slider]
 activeTrackColor = 0xFF7DAEA3
 thumbColor = 0xFF7DAEA3
 
-[variants.soft_blue.components.light.iconButton]
-foregroundColor = 0xFF454D1D
+[variants.soft_blue.components.dark.progress]
+color = 0xFF7DAEA3
 
-[variants.soft_blue.components.light.search]
-iconColor = 0xFF454D1D
-
-[variants.soft_blue.components.light.appBar]
-iconColor = 0xFF304D54
-
-[variants.soft_blue.components.light.navigation]
-selectedLabelColor = 0xFF304D54
-
-[variants.soft_blue.components.light.progress]
-color = 0xFF45707A
+[variants.soft_blue.components.light.sidebar]
+selectedColor = 0xFFE1DCBA
 
 [variants.soft_blue.components.light.slider]
 activeTrackColor = 0xFF45707A
 thumbColor = 0xFF45707A
+
+[variants.soft_blue.components.light.progress]
+color = 0xFF45707A
