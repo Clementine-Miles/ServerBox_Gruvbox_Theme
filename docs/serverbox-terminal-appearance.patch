@@ -416,7 +416,7 @@ index 45d0ab1..0d9b9ce 100644
                    borderRadius: BorderRadius.circular(2),
                  ),
 diff --git a/test/widget/ssh_tab_test.dart b/test/widget/ssh_tab_test.dart
-index 57e20d2..df980ee 100644
+index 57e20d2..0155cee 100644
 --- a/test/widget/ssh_tab_test.dart
 +++ b/test/widget/ssh_tab_test.dart
 @@ -6,5 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
@@ -444,9 +444,10 @@ index 57e20d2..df980ee 100644
 +    bool includeFloating = false,
    }) async {
      tester.view.physicalSize = size;
-@@ -57,9 +64,25 @@ void main() {
+@@ -57,9 +64,26 @@ void main() {
        ProviderScope(
          child: MaterialApp(
++          builder: includeFloating ? ResponsivePoints.builder : null,
 +          theme: brightness == null
 +              ? null
 +              : ThemeData(
@@ -471,7 +472,7 @@ index 57e20d2..df980ee 100644
 +          ),
          ),
        ),
-@@ -118,13 +141,22 @@ void main() {
+@@ -118,13 +142,22 @@ void main() {
      }
  
 -    Future<void> openOnPhone(WidgetTester tester) async {
@@ -499,7 +500,7 @@ index 57e20d2..df980ee 100644
 +          .add(spi);
        for (var i = 0; i < 20; i++) {
          await tester.pump(const Duration(milliseconds: 50));
-@@ -133,4 +165,64 @@ void main() {
+@@ -133,4 +166,64 @@ void main() {
      }
  
 +    for (final appMode in Brightness.values) {
@@ -526,7 +527,7 @@ index 57e20d2..df980ee 100644
 +                : TerminalThemes.light;
 +            final surface = find.byWidgetPredicate(
 +              (widget) =>
-+                  (widget is Container &&
++                  (widget is ColoredBox &&
 +                      widget.color == expected.background) ||
 +                  (widget is Material && widget.color == expected.background),
 +            );
@@ -564,7 +565,7 @@ index 57e20d2..df980ee 100644
 +
      testWidgets('is behind the menu, taking no button from the bar', (
        tester,
-@@ -150,5 +242,7 @@ void main() {
+@@ -150,5 +243,7 @@ void main() {
        tester.platformDispatcher.accessibilityFeaturesTestValue =
            const FakeAccessibilityFeatures(accessibleNavigation: true);
 -      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
